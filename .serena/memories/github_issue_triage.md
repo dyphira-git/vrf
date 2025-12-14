@@ -1,4 +1,4 @@
-# GitHub MCP: issue_triage (Copilot excluded)
+# GitHub MCP: issue_triage
 
 Use when the user asks to **find, read, or triage issues** (status, labels, comments, sub-issues).
 

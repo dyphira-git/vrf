@@ -1,4 +1,4 @@
-# GitHub MCP: issue_creation (Copilot excluded)
+# GitHub MCP: issue_creation
 
 Use when the user asks to **create a new issue** (or a batch of issues) and optionally label/assign/milestone it.
 
