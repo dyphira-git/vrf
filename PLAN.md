@@ -35,9 +35,9 @@ Conventions:
   - [ ] New flags/config: `--debug-http-enabled`, `--debug-http-addr` (loopback/UDS only by default).
   - [ ] Ensure debug HTTP is never served on the production gRPC port (no h2c / no grpc-gateway on gRPC port).
   - [ ] Ensure debug HTTP refuses non-loopback bind unless `--vrf-allow-public-bind` (or a distinct `--debug-allow-public-bind`) is set.
-- [ ] Add Unix domain socket support for Prometheus metrics (PRD references loopback/**UDS** for metrics):
-  - [ ] Allow `--metrics-addr unix:///path`.
-  - [ ] Ensure filesystem permissions for socket are sane and documented.
+- [x] Add Unix domain socket support for Prometheus metrics (PRD references loopback/**UDS** for metrics):
+  - [x] Allow `--metrics-addr unix:///path`.
+  - [x] Ensure filesystem permissions for socket are sane and documented.
 
 ### 1.2 Drand Endpoint Isolation / SSRF Resistance (PRD §2.2.4)
 

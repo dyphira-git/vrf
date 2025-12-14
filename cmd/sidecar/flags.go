@@ -55,7 +55,7 @@ func parseFlags(args []string) (cliConfig, bool, error) {
 	allowPublic := fs.Bool("vrf-allow-public-bind", false, "allow sidecar to bind to non-loopback addresses (unsafe; operators must secure access)")
 
 	metricsEnabled := fs.Bool("metrics-enabled", false, "enable Prometheus metrics")
-	metricsAddr := fs.String("metrics-addr", "127.0.0.1:8091", "Prometheus metrics listen address (loopback only)")
+	metricsAddr := fs.String("metrics-addr", "127.0.0.1:8091", "Prometheus metrics listen address (loopback or UDS via unix://; socket perms via umask/ownership)")
 	chainID := fs.String("chain-id", "", "chain ID label for metrics (optional)")
 
 	debugHTTPEnabled := fs.Bool("debug-http-enabled", false, "enable debug HTTP/JSON server")

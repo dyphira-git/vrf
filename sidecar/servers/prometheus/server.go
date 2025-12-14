@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -18,6 +20,11 @@ const (
 	readHeaderTimeout  = 10 * time.Second
 )
 
+var (
+	errInvalidPrometheusServerAddress = errors.New("invalid prometheus server address")
+	errUnknownPrometheusListenNetwork = errors.New("unknown prometheus listen network")
+)
+
 // PrometheusServer is a prometheus server that serves metrics registered in the DefaultRegisterer.
 // It is a wrapper around the promhttp.Handler() handler. The server will be started in a go-routine,
 // and is gracefully stopped on close.
@@ -25,17 +32,25 @@ type PrometheusServer struct { //nolint
 	srv    *http.Server
 	done   chan struct{}
 	logger *zap.Logger
+
+	network string
+	addr    string
 }
 
 // NewPrometheusServer creates a prometheus server if the metrics are enabled and
 // address is set, and valid. Notice, this method does not start the server.
 func NewPrometheusServer(prometheusAddress string, logger *zap.Logger) (*PrometheusServer, error) {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+
 	// get the prometheus server address
-	if !isValidAddress(prometheusAddress) {
-		return nil, fmt.Errorf("invalid prometheus server address: %s", prometheusAddress)
+	network, addr, ok := parseListenAddress(prometheusAddress)
+	if !ok {
+		return nil, fmt.Errorf("%w: %s", errInvalidPrometheusServerAddress, prometheusAddress)
 	}
 	srv := &http.Server{
-		Addr: prometheusAddress,
+		Addr: addr,
 		Handler: promhttp.InstrumentMetricHandler(
 			prometheus.DefaultRegisterer, promhttp.HandlerFor(
 				prometheus.DefaultGatherer,
@@ -47,9 +62,11 @@ func NewPrometheusServer(prometheusAddress string, logger *zap.Logger) (*Prometh
 
 	logger = logger.With(zap.String("server", "prometheus"))
 	ps := &PrometheusServer{
-		srv:    srv,
-		done:   make(chan struct{}),
-		logger: logger,
+		srv:     srv,
+		done:    make(chan struct{}),
+		logger:  logger,
+		network: network,
+		addr:    addr,
 	}
 
 	return ps, nil
@@ -58,7 +75,28 @@ func NewPrometheusServer(prometheusAddress string, logger *zap.Logger) (*Prometh
 // Start will spawn a http server that will handle requests to /metrics
 // and serves the metrics registered in the DefaultRegisterer.
 func (ps *PrometheusServer) Start() {
-	if err := ps.srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+	var listener net.Listener
+	var err error
+	switch ps.network {
+	case "unix":
+		_ = os.Remove(ps.addr)
+		listener, err = net.Listen("unix", ps.addr)
+		if err == nil {
+			defer func() { _ = os.Remove(ps.addr) }()
+		}
+	case "tcp":
+		listener, err = net.Listen("tcp", ps.addr)
+	default:
+		err = fmt.Errorf("%w: %q", errUnknownPrometheusListenNetwork, ps.network)
+	}
+
+	if err != nil {
+		ps.logger.Info("prometheus server error", zap.Error(err))
+		close(ps.done)
+		return
+	}
+
+	if err := ps.srv.Serve(listener); !errors.Is(err, http.ErrServerClosed) {
 		ps.logger.Info("prometheus server error", zap.Error(err))
 	} else {
 		ps.logger.Info("prometheus server closed")
@@ -89,7 +127,22 @@ func (ps *PrometheusServer) Done() <-chan struct{} {
 	return ps.done
 }
 
-func isValidAddress(addr string) bool {
+func parseListenAddress(addr string) (network string, address string, ok bool) {
+	if strings.HasPrefix(addr, "unix://") {
+		path := strings.TrimPrefix(addr, "unix://")
+		if strings.TrimSpace(path) == "" {
+			return "", "", false
+		}
+		return "unix", path, true
+	}
+
+	if !isValidTCPAddress(addr) {
+		return "", "", false
+	}
+	return "tcp", addr, true
+}
+
+func isValidTCPAddress(addr string) bool {
 	if addr == "" {
 		return false
 	}

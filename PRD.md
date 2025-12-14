@@ -286,6 +286,7 @@ To prevent `sidecar` from becoming a pivot for SSRF or unintended outbound conne
 - HTTP (optional, debug‑only): standard library + `github.com/gorilla/mux` for **separate** debug/JSON endpoints if needed:
   - These must be disabled by default and, when enabled, bound only to loopback/UDS.
 - Prometheus: `github.com/prometheus/client_golang` for VRF/drand metrics, exposed on loopback/UDS only by default.
+  - When using UDS, manage access via socket directory ownership and the sidecar process `umask` (e.g., create `/var/run/vrf` owned by `vrf:prometheus` with mode `0750`, and run sidecar with `umask 007` so the socket is group-readable).
 
 ---
 
