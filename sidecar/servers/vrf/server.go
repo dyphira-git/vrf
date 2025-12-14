@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -15,6 +16,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/vexxvakan/vrf/sidecar"
+	sidecarmetrics "github.com/vexxvakan/vrf/sidecar/servers/prometheus/metrics"
 	"github.com/vexxvakan/vrf/sidecar/servers/vrf/types"
 )
 
@@ -31,20 +33,26 @@ type Server struct {
 
 	grpcSrv *grpc.Server
 	logger  *zap.Logger
+	metrics sidecarmetrics.Metrics
 
 	sem     chan struct{}
 	limiter *rate.Limiter
 }
 
-func NewServer(svc sidecar.Service, logger *zap.Logger) *Server {
+func NewServer(svc sidecar.Service, logger *zap.Logger, m sidecarmetrics.Metrics) *Server {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
 
+	if m == nil {
+		m = sidecarmetrics.NewNop()
+	}
+
 	return &Server{
-		svc:    svc,
-		logger: logger.With(zap.String("server", "vrf")),
-		sem:    make(chan struct{}, defaultMaxConcurrent),
+		svc:     svc,
+		logger:  logger.With(zap.String("server", "vrf")),
+		metrics: m,
+		sem:     make(chan struct{}, defaultMaxConcurrent),
 		limiter: rate.NewLimiter(
 			defaultRatePerSecond,
 			defaultRateBurst,
@@ -111,8 +119,10 @@ func (s *Server) Start(ctx context.Context, addr string) error {
 	return s.StartWithListener(ctx, ln)
 }
 
-func (s *Server) acquire() func() {
+func (s *Server) acquire(method string) func() {
+	start := time.Now()
 	s.sem <- struct{}{}
+	s.metrics.ObserveGRPCConcurrencyWait(method, time.Since(start).Seconds())
 	return func() {
 		<-s.sem
 	}
@@ -127,10 +137,11 @@ func (s *Server) Randomness(
 	}
 
 	if !s.limiter.Allow() {
+		s.metrics.AddGRPCRateLimitRejected("Randomness")
 		return nil, status.Error(codes.ResourceExhausted, "vrf: rate limit exceeded")
 	}
 
-	release := s.acquire()
+	release := s.acquire("Randomness")
 	defer release()
 
 	res, err := s.svc.Randomness(ctx, req.Round)
@@ -146,10 +157,11 @@ func (s *Server) Info(
 	_ *types.QueryInfoRequest,
 ) (*types.QueryInfoResponse, error) {
 	if !s.limiter.Allow() {
+		s.metrics.AddGRPCRateLimitRejected("Info")
 		return nil, status.Error(codes.ResourceExhausted, "vrf: rate limit exceeded")
 	}
 
-	release := s.acquire()
+	release := s.acquire("Info")
 	defer release()
 
 	info, err := s.svc.Info(ctx)

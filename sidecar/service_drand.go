@@ -3,20 +3,22 @@ package sidecar
 import ( //nolint:depguard
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"net/url"
-	"os/exec"
-	"regexp"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/drand/drand/v2/common"
 	"github.com/drand/drand/v2/common/chain"
+	"github.com/drand/drand/v2/crypto"
+	"github.com/drand/kyber"
 	"go.uber.org/zap"
 	"golang.org/x/sync/singleflight"
 
@@ -39,6 +41,14 @@ type DrandService struct {
 
 	lastSuccessUnixNano atomic.Int64
 	chainInfo           *servertypes.QueryInfoResponse
+
+	scheme   *crypto.Scheme
+	pubKey   kyber.Point
+	cacheTTL time.Duration
+
+	cacheMu      sync.RWMutex
+	cachedLatest *servertypes.QueryRandomnessResponse
+	cachedAt     time.Time
 }
 
 // NewDrandService constructs a new DrandService, checking the configured drand
@@ -69,7 +79,7 @@ func NewDrandService(
 		return nil, fmt.Errorf("drand chain configuration is incomplete: chain hash, public key, period, and genesis are required")
 	}
 
-	if err := checkDrandBinary(cfg, logger); err != nil {
+	if err := checkDrandBinaryVersion(cfg, logger); err != nil {
 		return nil, err
 	}
 
@@ -81,6 +91,7 @@ func NewDrandService(
 		metrics:    m,
 		fetchSem:   make(chan struct{}, 1),
 		httpClient: &http.Client{Timeout: 5 * time.Second},
+		cacheTTL:   1 * time.Second,
 	}
 
 	info, err := s.fetchChainInfo(ctx)
@@ -88,11 +99,32 @@ func NewDrandService(
 		return nil, err
 	}
 
-	if err := ValidateDrandChainInfo(info, cfg); err != nil {
+	infoRes, err := queryInfoResponseFromChainInfo(info)
+	if err != nil {
 		return nil, err
 	}
 
-	s.chainInfo = info
+	if err := ValidateDrandChainInfo(infoRes, cfg); err != nil {
+		return nil, err
+	}
+
+	s.chainInfo = infoRes
+
+	schemeName := strings.TrimSpace(info.GetSchemeName())
+	if schemeName == "" {
+		schemeName = crypto.DefaultSchemeID
+	}
+
+	s.scheme, err = crypto.SchemeFromName(schemeName)
+	if err != nil {
+		return nil, fmt.Errorf("loading drand scheme %q: %w", schemeName, err)
+	}
+
+	s.pubKey = s.scheme.KeyGroup.Point()
+	if err := s.pubKey.UnmarshalBinary(cfg.PublicKey); err != nil {
+		return nil, fmt.Errorf("decoding drand public key: %w", err)
+	}
+
 	return s, nil
 }
 
@@ -127,6 +159,26 @@ func (s *DrandService) acquireFetch() func() {
 	return func() { <-s.fetchSem }
 }
 
+func (s *DrandService) cacheLatest(now time.Time, beacon *servertypes.QueryRandomnessResponse) {
+	s.cacheMu.Lock()
+	defer s.cacheMu.Unlock()
+	s.cachedLatest = cloneRandomnessResponse(beacon)
+	s.cachedAt = now
+}
+
+func (s *DrandService) cachedLatestBeacon(now time.Time) (*servertypes.QueryRandomnessResponse, bool) {
+	s.cacheMu.RLock()
+	defer s.cacheMu.RUnlock()
+
+	if s.cachedLatest == nil {
+		return nil, false
+	}
+	if s.cacheTTL <= 0 || now.Sub(s.cachedAt) > s.cacheTTL {
+		return nil, false
+	}
+	return cloneRandomnessResponse(s.cachedLatest), true
+}
+
 func (s *DrandService) observeTimeSinceLastSuccess(now time.Time) {
 	lastNanos := s.lastSuccessUnixNano.Load()
 	if lastNanos == 0 {
@@ -145,6 +197,14 @@ func (s *DrandService) Randomness(
 	ctx context.Context,
 	round uint64,
 ) (*servertypes.QueryRandomnessResponse, error) {
+	if round == 0 {
+		now := time.Now()
+		if beacon, ok := s.cachedLatestBeacon(now); ok {
+			s.observeTimeSinceLastSuccess(now)
+			return beacon, nil
+		}
+	}
+
 	key := fmt.Sprintf("round-%d", round)
 
 	v, err, _ := s.sf.Do(key, func() (interface{}, error) {
@@ -179,12 +239,17 @@ func (s *DrandService) Info(ctx context.Context) (*servertypes.QueryInfoResponse
 		return nil, err
 	}
 
-	if err := ValidateDrandChainInfo(info, s.cfg); err != nil {
+	infoRes, err := queryInfoResponseFromChainInfo(info)
+	if err != nil {
 		return nil, err
 	}
 
-	s.chainInfo = info
-	return info, nil
+	if err := ValidateDrandChainInfo(infoRes, s.cfg); err != nil {
+		return nil, err
+	}
+
+	s.chainInfo = infoRes
+	return infoRes, nil
 }
 
 // drandHTTPBeacon is a minimal view of the drand HTTP randomness response.
@@ -197,6 +262,31 @@ type drandHTTPBeacon struct {
 
 func (s *DrandService) fetchBeacon(ctx context.Context, round uint64) (*servertypes.QueryRandomnessResponse, error) {
 	chainHashHex := fmt.Sprintf("%x", s.cfg.ChainHash)
+	requestedRound := round
+	var servedRound uint64
+	result := sidecarmetrics.FetchOther
+	var retErr error
+
+	defer func() {
+		s.metrics.AddDrandFetch(result)
+
+		fields := []zap.Field{
+			zap.Uint64("round", requestedRound),
+			zap.Uint64("served_round", servedRound),
+			zap.String("chain_hash", chainHashHex),
+			zap.String("result", string(result)),
+		}
+		if retErr != nil {
+			fields = append(fields, zap.Error(retErr))
+		}
+
+		switch result {
+		case sidecarmetrics.FetchSuccess, sidecarmetrics.FetchNotFound:
+			s.logger.Info("drand fetch attempt", fields...)
+		default:
+			s.logger.Warn("drand fetch attempt", fields...)
+		}
+	}()
 
 	path := fmt.Sprintf("/%s/public/latest", chainHashHex)
 	if round > 0 {
@@ -210,84 +300,137 @@ func (s *DrandService) fetchBeacon(ctx context.Context, round uint64) (*serverty
 		nil,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("creating drand request: %w", err)
+		retErr = fmt.Errorf("creating drand request: %w", err)
+		result = sidecarmetrics.FetchOther
+		return nil, retErr
 	}
 
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
-		s.metrics.AddDrandFetch(sidecarmetrics.FetchFailure)
-		s.logger.Warn("drand fetch failed", zap.Uint64("round", round), zap.String("chain_hash", chainHashHex), zap.Error(err))
-		return nil, fmt.Errorf("querying drand: %w", err)
+		retErr = fmt.Errorf("querying drand: %w", err)
+
+		var netErr net.Error
+		if errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &netErr) && netErr.Timeout()) {
+			result = sidecarmetrics.FetchTimeout
+		} else {
+			result = sidecarmetrics.FetchHTTPError
+		}
+
+		return nil, retErr
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
-		s.metrics.AddDrandFetch(sidecarmetrics.FetchFailure)
-		s.logger.Warn("drand round not yet available", zap.Uint64("round", round), zap.String("chain_hash", chainHashHex))
-		return nil, ErrRoundNotAvailable
+		retErr = ErrRoundNotAvailable
+		result = sidecarmetrics.FetchNotFound
+		return nil, retErr
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		s.metrics.AddDrandFetch(sidecarmetrics.FetchFailure)
-		s.logger.Warn("drand returned non-200", zap.Uint64("round", round), zap.String("chain_hash", chainHashHex), zap.String("status", resp.Status))
-		return nil, fmt.Errorf("drand returned non-200: %s", resp.Status)
+		retErr = fmt.Errorf("drand returned non-200: %s", resp.Status)
+		result = sidecarmetrics.FetchHTTPError
+		return nil, retErr
 	}
 
 	var hb drandHTTPBeacon
 	if err := json.NewDecoder(resp.Body).Decode(&hb); err != nil {
-		s.metrics.AddDrandFetch(sidecarmetrics.FetchFailure)
-		return nil, fmt.Errorf("decoding drand response: %w", err)
+		retErr = fmt.Errorf("decoding drand response: %w", err)
+		result = sidecarmetrics.FetchDecodeError
+		return nil, retErr
+	}
+	servedRound = hb.Round
+
+	if round > 0 && hb.Round != round {
+		retErr = fmt.Errorf("%w: drand returned round %d for requested round %d", ErrWrongRound, hb.Round, round)
+		result = sidecarmetrics.FetchWrongRound
+		return nil, retErr
 	}
 
 	sig, err := decodeHexBytes(hb.Signature)
 	if err != nil {
-		s.metrics.AddDrandFetch(sidecarmetrics.FetchFailure)
-		return nil, fmt.Errorf("decoding signature: %w", err)
+		retErr = fmt.Errorf("decoding signature: %w", err)
+		result = sidecarmetrics.FetchDecodeError
+		return nil, retErr
 	}
 
 	var prevSig []byte
 	if strings.TrimSpace(hb.PreviousSignature) != "" {
 		prevSig, err = decodeHexBytes(hb.PreviousSignature)
 		if err != nil {
-			s.metrics.AddDrandFetch(sidecarmetrics.FetchFailure)
-			return nil, fmt.Errorf("decoding previous signature: %w", err)
+			retErr = fmt.Errorf("decoding previous signature: %w", err)
+			result = sidecarmetrics.FetchDecodeError
+			return nil, retErr
 		}
 	}
 
-	randHash := sha256.Sum256(sig)
+	randomness := crypto.RandomnessFromSignature(sig)
 
-	// If the endpoint returned randomness, verify it matches sha256(signature).
+	// If the endpoint returned randomness, verify it matches the local derivation.
 	if strings.TrimSpace(hb.Randomness) != "" {
 		gotRand, err := decodeHexBytes(hb.Randomness)
 		if err != nil {
-			s.metrics.AddDrandFetch(sidecarmetrics.FetchFailure)
-			return nil, fmt.Errorf("decoding randomness: %w", err)
+			retErr = fmt.Errorf("decoding randomness: %w", err)
+			result = sidecarmetrics.FetchDecodeError
+			return nil, retErr
 		}
-		if !bytes.Equal(gotRand, randHash[:]) {
-			s.metrics.AddDrandFetch(sidecarmetrics.FetchFailure)
-			return nil, fmt.Errorf("drand randomness mismatch: sha256(signature) != randomness")
+		if !bytes.Equal(gotRand, randomness) {
+			retErr = fmt.Errorf("%w: drand randomness mismatch", ErrHashMismatch)
+			result = sidecarmetrics.FetchHashMismatch
+			return nil, retErr
 		}
 	}
 
-	s.metrics.AddDrandFetch(sidecarmetrics.FetchSuccess)
+	if err := s.verifyBeacon(hb.Round, sig, prevSig); err != nil {
+		retErr = err
+		if errors.Is(err, ErrBadSignature) {
+			result = sidecarmetrics.FetchBadSignature
+		} else {
+			result = sidecarmetrics.FetchOther
+		}
+		return nil, retErr
+	}
+
+	result = sidecarmetrics.FetchSuccess
 	s.metrics.SetDrandLatestRound(hb.Round)
 	s.lastSuccessUnixNano.Store(time.Now().UnixNano())
 
-	s.logger.Info(
-		"fetched drand beacon",
-		zap.Uint64("round", hb.Round),
-		zap.String("chain_hash", chainHashHex),
-	)
-
-	return &servertypes.QueryRandomnessResponse{
+	out := &servertypes.QueryRandomnessResponse{
 		DrandRound:        hb.Round,
-		Randomness:        randHash[:],
+		Randomness:        randomness,
 		Signature:         sig,
 		PreviousSignature: prevSig,
-	}, nil
+	}
+
+	if round == 0 {
+		s.cacheLatest(time.Now(), out)
+	}
+
+	return out, nil
 }
 
-func (s *DrandService) fetchChainInfo(ctx context.Context) (*servertypes.QueryInfoResponse, error) {
+func (s *DrandService) verifyBeacon(round uint64, sig, prevSig []byte) error {
+	if s.scheme == nil || s.pubKey == nil {
+		return fmt.Errorf("drand verification not initialized")
+	}
+
+	if strings.HasSuffix(s.scheme.Name, "-chained") && round > 1 && len(prevSig) == 0 {
+		return fmt.Errorf("%w: missing previous_signature for chained scheme", ErrBadSignature)
+	}
+
+	b := &common.Beacon{
+		PreviousSig: prevSig,
+		Round:       round,
+		Signature:   sig,
+	}
+
+	if err := s.scheme.VerifyBeacon(b, s.pubKey); err != nil {
+		return fmt.Errorf("%w: %v", ErrBadSignature, err)
+	}
+
+	return nil
+}
+
+func (s *DrandService) fetchChainInfo(ctx context.Context) (*chain.Info, error) {
 	chainHashHex := fmt.Sprintf("%x", s.cfg.ChainHash)
 
 	req, err := http.NewRequestWithContext(
@@ -315,6 +458,14 @@ func (s *DrandService) fetchChainInfo(ctx context.Context) (*servertypes.QueryIn
 		return nil, fmt.Errorf("decoding drand /info response: %w", err)
 	}
 
+	return info, nil
+}
+
+func queryInfoResponseFromChainInfo(info *chain.Info) (*servertypes.QueryInfoResponse, error) {
+	if info == nil {
+		return nil, fmt.Errorf("nil drand chain info")
+	}
+
 	pubKey, err := info.PublicKey.MarshalBinary()
 	if err != nil {
 		return nil, fmt.Errorf("encoding drand public key: %w", err)
@@ -326,6 +477,26 @@ func (s *DrandService) fetchChainInfo(ctx context.Context) (*servertypes.QueryIn
 		PeriodSeconds:  uint64(info.Period / time.Second),
 		GenesisUnixSec: info.GenesisTime,
 	}, nil
+}
+
+func cloneRandomnessResponse(beacon *servertypes.QueryRandomnessResponse) *servertypes.QueryRandomnessResponse {
+	if beacon == nil {
+		return nil
+	}
+
+	out := &servertypes.QueryRandomnessResponse{
+		DrandRound: beacon.DrandRound,
+	}
+	if len(beacon.Randomness) > 0 {
+		out.Randomness = bytes.Clone(beacon.Randomness)
+	}
+	if len(beacon.Signature) > 0 {
+		out.Signature = bytes.Clone(beacon.Signature)
+	}
+	if len(beacon.PreviousSignature) > 0 {
+		out.PreviousSignature = bytes.Clone(beacon.PreviousSignature)
+	}
+	return out
 }
 
 func decodeHexBytes(s string) ([]byte, error) {
@@ -362,61 +533,4 @@ func enforceLoopbackHTTP(endpoint string) error {
 	}
 
 	return nil
-}
-
-var drandSemverRe = regexp.MustCompile(`\b\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?\b`)
-
-// checkDrandBinary runs "drand --version" (falling back to "drand version") and,
-// when ExpectedBinaryVersion is non-empty, enforces that the discovered version
-// matches exactly.
-func checkDrandBinary(cfg Config, logger *zap.Logger) error {
-	path := cfg.BinaryPath
-	if strings.TrimSpace(path) == "" {
-		path = "drand"
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	version, err := drandBinaryVersion(ctx, path)
-	if err != nil {
-		return err
-	}
-	logger.Info("detected drand binary version", zap.String("version", version))
-
-	if cfg.ExpectedBinaryVersion != "" && version != cfg.ExpectedBinaryVersion {
-		return fmt.Errorf(
-			"drand version mismatch: got %q, expected %q",
-			version,
-			cfg.ExpectedBinaryVersion,
-		)
-	}
-
-	return nil
-}
-
-func drandBinaryVersion(ctx context.Context, drandPath string) (string, error) {
-	out, err := exec.CommandContext(ctx, drandPath, "--version").CombinedOutput() //nolint:gosec
-	if err != nil {
-		legacyOut, legacyErr := exec.CommandContext(ctx, drandPath, "version").CombinedOutput() //nolint:gosec
-		if legacyErr != nil {
-			return "", fmt.Errorf(
-				"running drand --version: %w: %s",
-				err,
-				strings.TrimSpace(string(out)),
-			)
-		}
-		out = legacyOut
-	}
-
-	versionStr := strings.TrimSpace(string(out))
-	if versionStr == "" {
-		return "", fmt.Errorf("drand --version output is empty")
-	}
-
-	if semver := drandSemverRe.FindString(versionStr); semver != "" {
-		return semver, nil
-	}
-
-	return versionStr, nil
 }

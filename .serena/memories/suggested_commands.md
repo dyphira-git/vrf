@@ -12,7 +12,6 @@
 ## Lint/format
 
 - Lint: `make lint`
-- Lint with fixes: `make lint-fix`
 - Format: `make format`
 
 ## Protobuf

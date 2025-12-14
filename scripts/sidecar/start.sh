@@ -35,12 +35,26 @@ DRAND_PRIVATE_ADDR=${DRAND_PRIVATE_ADDR:-0.0.0.0:4444}
 DRAND_CONTROL_ADDR=${DRAND_CONTROL_ADDR:-127.0.0.1:8881}
 
 DRAND_BINARY=${DRAND_BINARY:-drand}
-DRAND_EXPECTED_VERSION=${DRAND_EXPECTED_VERSION:-}
+DRAND_VERSION_CHECK=${DRAND_VERSION_CHECK:-strict}
 
 DRAND_CHAIN_HASH=${DRAND_CHAIN_HASH:-}
 DRAND_PUBLIC_KEY=${DRAND_PUBLIC_KEY:-}
 DRAND_PERIOD_SECONDS=${DRAND_PERIOD_SECONDS:-}
 DRAND_GENESIS_UNIX=${DRAND_GENESIS_UNIX:-}
+
+# Optional chain watcher (PLAN §1.8):
+# - When CHAIN_GRPC_ADDR is set, the sidecar fetches x/vrf params at startup and
+#   watches enabled/reshare_epoch, treating chain params as the source of truth.
+# - DRAND_* params become optional in this mode.
+CHAIN_GRPC_ADDR=${CHAIN_GRPC_ADDR:-}
+CHAIN_RPC_ADDR=${CHAIN_RPC_ADDR:-}
+CHAIN_POLL_INTERVAL=${CHAIN_POLL_INTERVAL:-}
+CHAIN_WS_ENABLED=${CHAIN_WS_ENABLED:-false}
+
+# Reshare listener (PLAN §1.8 / PRD §5.5):
+RESHARE_ENABLED=${RESHARE_ENABLED:-true}
+DRAND_RESHARE_ARGS=${DRAND_RESHARE_ARGS:-}
+DRAND_RESHARE_TIMEOUT=${DRAND_RESHARE_TIMEOUT:-}
 
 CHAIN_BINARY=${CHAIN_BINARY:-chaind}
 CHAIN_DIR=${CHAIN_DIR:-}
@@ -194,6 +208,10 @@ EOF
     fi
 }
 
+if [ -n "$CHAIN_GRPC_ADDR" ]; then
+    # Chain watcher enabled; skip DRAND_* autodetection and missing checks.
+    :
+else
 MISSING=""
 if [ -z "$DRAND_CHAIN_HASH" ]; then
     MISSING="$MISSING DRAND_CHAIN_HASH"
@@ -255,6 +273,7 @@ if [ -n "$MISSING" ]; then
     echo "Provide DRAND_* env vars explicitly, or ensure x/vrf params are set (chain_hash/public_key/genesis_unix_sec/period_seconds)." >&2
     exit 1
 fi
+fi
 
 set -- \
     --listen-addr "$SIDECAR_LISTEN_ADDR" \
@@ -278,8 +297,27 @@ fi
 if [ -n "$DRAND_HTTP" ]; then
     set -- "$@" --drand-http "$DRAND_HTTP"
 fi
-if [ -n "$DRAND_EXPECTED_VERSION" ]; then
-    set -- "$@" --drand-expected-version "$DRAND_EXPECTED_VERSION"
+set -- "$@" --drand-version-check "$DRAND_VERSION_CHECK"
+
+if [ -n "$CHAIN_GRPC_ADDR" ]; then
+    set -- "$@" --chain-grpc-addr "$CHAIN_GRPC_ADDR"
+fi
+if [ -n "$CHAIN_RPC_ADDR" ]; then
+    set -- "$@" --chain-rpc-addr "$CHAIN_RPC_ADDR"
+fi
+if [ -n "$CHAIN_POLL_INTERVAL" ]; then
+    set -- "$@" --chain-poll-interval "$CHAIN_POLL_INTERVAL"
+fi
+set -- "$@" --chain-ws-enabled="$CHAIN_WS_ENABLED"
+
+set -- "$@" --reshare-enabled="$RESHARE_ENABLED"
+if [ -n "$DRAND_RESHARE_TIMEOUT" ]; then
+    set -- "$@" --drand-reshare-timeout "$DRAND_RESHARE_TIMEOUT"
+fi
+if [ -n "$DRAND_RESHARE_ARGS" ]; then
+    for arg in $DRAND_RESHARE_ARGS; do
+        set -- "$@" --drand-reshare-arg "$arg"
+    done
 fi
 
 exec "$SIDECAR_BINARY" "$@"

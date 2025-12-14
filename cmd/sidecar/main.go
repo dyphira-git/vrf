@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -16,6 +17,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/vexxvakan/vrf/sidecar"
 	"github.com/vexxvakan/vrf/sidecar/servers/prometheus"
@@ -28,31 +30,16 @@ func main() {
 }
 
 func run() int {
-	showVersion := flag.Bool("version", false, "print version and exit")
+	cfg, showVersion, err := parseFlags(os.Args[1:])
+	if err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
 
-	listenAddr := flag.String("listen-addr", "127.0.0.1:8090", "sidecar gRPC listen address (loopback or UDS via unix://)")
-	allowPublic := flag.Bool("vrf-allow-public-bind", false, "allow sidecar to bind to non-loopback addresses (unsafe; operators must secure access)")
-
-	metricsEnabled := flag.Bool("metrics-enabled", false, "enable Prometheus metrics")
-	metricsAddr := flag.String("metrics-addr", "127.0.0.1:8091", "Prometheus metrics listen address (loopback only)")
-	chainID := flag.String("chain-id", "", "chain ID label for metrics (optional)")
-
-	drandSupervise := flag.Bool("drand-supervise", true, "start and supervise a local drand subprocess")
-	drandHTTP := flag.String("drand-http", "", "drand HTTP base URL (defaults to http://<drand-public-addr>)")
-	drandPublic := flag.String("drand-public-addr", "127.0.0.1:8081", "drand public listen address (also used for HTTP)")
-	drandPrivate := flag.String("drand-private-addr", "0.0.0.0:4444", "drand private listen address")
-	drandControl := flag.String("drand-control-addr", "127.0.0.1:8881", "drand control listen address")
-	drandDataDir := flag.String("drand-data-dir", "", "drand data directory (required when --drand-supervise)")
-
-	drandBinary := flag.String("drand-binary", "drand", "path to drand binary")
-	drandVersion := flag.String("drand-expected-version", "", "expected drand version string (optional, exact match)")
-	chainHashHex := flag.String("drand-chain-hash", "", "expected drand chain hash (hex)")
-	publicKeyB64 := flag.String("drand-public-key", "", "expected drand group public key (base64)")
-	periodSeconds := flag.Uint("drand-period-seconds", 0, "drand beacon period in seconds")
-	genesisUnix := flag.Int64("drand-genesis-unix", 0, "drand genesis time (unix seconds)")
-	flag.Parse()
-
-	if *showVersion {
+	if showVersion {
 		printVersion(os.Stdout)
 		return 0
 	}
@@ -67,103 +54,160 @@ func run() int {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	if !*allowPublic && !isLoopbackAddr(*listenAddr) {
-		logger.Error("refusing to bind sidecar to non-loopback address without --vrf-allow-public-bind", zap.String("addr", *listenAddr))
+	if err := validateBindConfig(cfg); err != nil {
+		logger.Error(err.Error())
 		return 1
 	}
 
-	if *metricsEnabled && !*allowPublic && !isLoopbackAddr(*metricsAddr) {
-		logger.Error("refusing to bind metrics to non-loopback address without --vrf-allow-public-bind", zap.String("addr", *metricsAddr))
-		return 1
-	}
-
-	metrics, err := sidecarmetrics.NewFromConfig(*metricsEnabled, *chainID)
+	metrics, err := sidecarmetrics.NewFromConfig(cfg.MetricsEnabled, cfg.ChainID)
 	if err != nil {
 		logger.Error("failed to initialize metrics", zap.Error(err))
 		return 1
 	}
 
-	if *metricsEnabled {
-		ps, err := prometheus.NewPrometheusServer(*metricsAddr, logger)
+	if cfg.MetricsEnabled {
+		ps, err := prometheus.NewPrometheusServer(cfg.MetricsAddr, logger)
 		if err != nil {
 			logger.Error("failed to create prometheus server", zap.Error(err))
 			return 1
 		}
-
 		go ps.Start()
 		defer ps.Close()
 	}
 
-	cfg := sidecar.Config{
-		DrandSupervise:        *drandSupervise,
-		DrandHTTP:             strings.TrimSpace(*drandHTTP),
-		BinaryPath:            *drandBinary,
-		ExpectedBinaryVersion: *drandVersion,
-		DrandDataDir:          *drandDataDir,
-		DrandPublicListen:     *drandPublic,
-		DrandPrivateListen:    *drandPrivate,
-		DrandControlListen:    *drandControl,
+	if cfg.ChainWSEnabled && strings.TrimSpace(cfg.ChainRPCAddr) == "" {
+		logger.Error("--chain-rpc-addr is required when --chain-ws-enabled=true")
+		return 1
 	}
 
-	if cfg.DrandHTTP == "" {
-		cfg.DrandHTTP = "http://" + cfg.DrandPublicListen
+	versionMode, err := sidecar.ParseDrandVersionCheckMode(cfg.DrandVersionCheck)
+	if err != nil {
+		logger.Error("invalid --drand-version-check value", zap.Error(err))
+		return 1
 	}
 
-	if *chainHashHex != "" {
-		chainHash, decodeErr := hex.DecodeString(*chainHashHex)
+	drandCfg := sidecar.Config{
+		DrandSupervise:     cfg.DrandSupervise,
+		DrandHTTP:          strings.TrimSpace(cfg.DrandHTTP),
+		BinaryPath:         cfg.DrandBinary,
+		DrandVersionCheck:  versionMode,
+		DrandDataDir:       cfg.DrandDataDir,
+		DrandPublicListen:  cfg.DrandPublicAddr,
+		DrandPrivateListen: cfg.DrandPrivateAddr,
+		DrandControlListen: cfg.DrandControlAddr,
+	}
+
+	if drandCfg.DrandHTTP == "" {
+		drandCfg.DrandHTTP = "http://" + drandCfg.DrandPublicListen
+	}
+
+	if cfg.DrandChainHashHex != "" {
+		chainHash, decodeErr := hex.DecodeString(cfg.DrandChainHashHex)
 		if decodeErr != nil {
 			logger.Error("invalid drand chain hash; must be hex", zap.Error(decodeErr))
 			return 1
 		}
-		cfg.ChainHash = chainHash
+		drandCfg.ChainHash = chainHash
 	}
 
-	if *publicKeyB64 != "" {
-		pubKey, decodeErr := base64.StdEncoding.DecodeString(*publicKeyB64)
+	if cfg.DrandPublicKeyB64 != "" {
+		pubKey, decodeErr := base64.StdEncoding.DecodeString(cfg.DrandPublicKeyB64)
 		if decodeErr != nil {
 			logger.Error("invalid drand public key; must be base64", zap.Error(decodeErr))
 			return 1
 		}
-		cfg.PublicKey = pubKey
+		drandCfg.PublicKey = pubKey
 	}
 
-	if *periodSeconds > 0 {
-		cfg.PeriodSeconds = uint64(*periodSeconds)
+	if cfg.DrandPeriodSeconds > 0 {
+		drandCfg.PeriodSeconds = uint64(cfg.DrandPeriodSeconds)
 	}
 
-	if *genesisUnix > 0 {
-		cfg.GenesisUnixSec = *genesisUnix
+	if cfg.DrandGenesisUnix > 0 {
+		drandCfg.GenesisUnixSec = cfg.DrandGenesisUnix
 	}
 
-	var proc *sidecar.DrandProcess
-	if cfg.DrandSupervise {
-		if strings.TrimSpace(cfg.DrandDataDir) == "" {
-			logger.Error("--drand-data-dir is required when --drand-supervise=true")
-			return 1
+	dyn := sidecar.NewDynamicService(nil)
+
+	if strings.TrimSpace(cfg.ChainGRPCAddr) != "" {
+		var drandCtl *drandController
+		if drandCfg.DrandSupervise {
+			if strings.TrimSpace(drandCfg.DrandDataDir) == "" {
+				logger.Error("--drand-data-dir is required when --drand-supervise=true")
+				return 1
+			}
+
+			drandCtl = newDrandController(ctx, sidecar.DrandProcessConfig{
+				BinaryPath:    drandCfg.BinaryPath,
+				DataDir:       drandCfg.DrandDataDir,
+				PrivateListen: drandCfg.DrandPrivateListen,
+				PublicListen:  drandCfg.DrandPublicListen,
+				ControlListen: drandCfg.DrandControlListen,
+			}, logger, metrics)
 		}
 
-		proc, err = sidecar.StartDrandProcess(ctx, sidecar.DrandProcessConfig{
-			BinaryPath:    cfg.BinaryPath,
-			DataDir:       cfg.DrandDataDir,
-			PrivateListen: cfg.DrandPrivateListen,
-			PublicListen:  cfg.DrandPublicListen,
-			ControlListen: cfg.DrandControlListen,
-		}, logger, metrics)
+		_, _, cleanup, err := startChainWatcher(ctx, cancel, logger, metrics, &drandCfg, cfg.ChainGRPCAddr, chainWatchConfig{
+			pollInterval:     cfg.ChainPollInterval,
+			wsEnabled:        cfg.ChainWSEnabled,
+			cometRPCAddr:     cfg.ChainRPCAddr,
+			reshareExtraArgs: cfg.DrandReshareArgs,
+			reshareEnabled:   cfg.ReshareEnabled,
+			reshareTimeout:   cfg.DrandReshareTimeout,
+		}, dyn, drandCtl)
 		if err != nil {
-			logger.Error("failed to start drand subprocess", zap.Error(err))
+			logger.Error("failed to start chain watcher", zap.Error(err))
 			return 1
 		}
-		defer proc.Stop()
+		defer cleanup()
+	} else {
+		if len(drandCfg.ChainHash) == 0 || len(drandCfg.PublicKey) == 0 || drandCfg.PeriodSeconds == 0 || drandCfg.GenesisUnixSec == 0 {
+			logger.Error("drand chain configuration is incomplete; provide flags or enable --chain-grpc-addr watcher")
+			return 1
+		}
+
+		dyn.SetInfo(infoFromConfig(drandCfg))
+
+		var proc *sidecar.DrandProcess
+		if drandCfg.DrandSupervise {
+			if strings.TrimSpace(drandCfg.DrandDataDir) == "" {
+				logger.Error("--drand-data-dir is required when --drand-supervise=true")
+				return 1
+			}
+
+			proc, err = sidecar.StartDrandProcess(ctx, sidecar.DrandProcessConfig{
+				BinaryPath:    drandCfg.BinaryPath,
+				DataDir:       drandCfg.DrandDataDir,
+				PrivateListen: drandCfg.DrandPrivateListen,
+				PublicListen:  drandCfg.DrandPublicListen,
+				ControlListen: drandCfg.DrandControlListen,
+			}, logger, metrics)
+			if err != nil {
+				logger.Error("failed to start drand subprocess", zap.Error(err))
+				return 1
+			}
+			defer proc.Stop()
+		}
+
+		svc, err := newDrandServiceWithRetry(ctx, drandCfg, logger, metrics, 30*time.Second)
+		if err != nil {
+			logger.Error("failed to create drand service", zap.Error(err))
+			return 1
+		}
+		dyn.SetService(svc)
 	}
 
-	svc, err := newDrandServiceWithRetry(ctx, cfg, logger, metrics, 30*time.Second)
-	if err != nil {
-		logger.Error("failed to create drand service", zap.Error(err))
-		return 1
+	server := vrfserver.NewServer(dyn, logger, metrics)
+	eg, egCtx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		return server.Start(egCtx, cfg.ListenAddr)
+	})
+	if cfg.DebugHTTPEnabled {
+		eg.Go(func() error {
+			return server.StartDebugHTTP(egCtx, cfg.DebugHTTPAddr)
+		})
 	}
 
-	server := vrfserver.NewServer(svc, logger)
-	if err := server.Start(ctx, *listenAddr); err != nil {
+	if err := eg.Wait(); err != nil {
 		logger.Error("sidecar server exited with error", zap.Error(err))
 		return 1
 	}

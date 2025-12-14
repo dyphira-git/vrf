@@ -57,6 +57,8 @@ endif
 # Dependency versions (used in summaries/ldflags)
 COSMOS_SDK_VERSION := $(shell $(GO) list -m -f '{{.Version}}' github.com/cosmos/cosmos-sdk 2>/dev/null)
 CMT_VERSION := $(shell $(GO) list -m -f '{{.Version}}' github.com/cometbft/cometbft 2>/dev/null)
+DRAND_GO_VERSION := $(shell $(GO) list -m -f '{{.Version}}' github.com/drand/drand/v2 2>/dev/null)
+DRAND_SEMVER := $(patsubst v%,%,$(DRAND_GO_VERSION))
 
 # Build tags
 build_tags := netgo
@@ -114,6 +116,15 @@ ldflags += $(LDFLAGS)
 ldflags := $(strip $(ldflags))
 
 BUILD_FLAGS := -trimpath -tags "$(build_tags)" -ldflags '$(ldflags)'
+
+# Sidecar drand binary pinning (PRD §3.1).
+sidecar_ldflags := $(ldflags)
+ifneq ($(strip $(DRAND_SEMVER)),)
+  sidecar_ldflags += -X $(MODULE)/sidecar.expectedDrandSemver=$(DRAND_SEMVER)
+endif
+sidecar_ldflags := $(strip $(sidecar_ldflags))
+
+SIDECAR_BUILD_FLAGS := -trimpath -tags "$(build_tags)" -ldflags '$(sidecar_ldflags)'
 TEST_FLAGS := -tags "$(build_tags)"
 GO_ENV_BUILD := $(GO_ENV_VARS) GOOS=$(GOOS) GOARCH=$(GOARCH)
 GO_ENV_TEST := $(GO_ENV_VARS) GOOS=$(HOST_GOOS) GOARCH=$(HOST_GOARCH)
@@ -162,7 +173,7 @@ install-chain:
 
 install-sidecar:
 	@echo "🔄 Installing $(SIDECAR_BINARY)..."
-	@$(GO_ENV_TEST) $(GO) install -mod=readonly $(BUILD_FLAGS) $(SIDECAR_PKG)
+	@$(GO_ENV_TEST) $(GO) install -mod=readonly $(SIDECAR_BUILD_FLAGS) $(SIDECAR_PKG)
 
 build: $(TIDY_DEPS) go-cache build-chain build-sidecar ## Build chaind + sidecar into ./bin
 
@@ -174,7 +185,7 @@ build-chain:
 build-sidecar:
 	@mkdir -p $(BIN_DIR)
 	@echo "🔄 Building $(SIDECAR_OUT)..."
-	@$(GO_ENV_BUILD) $(GO) build -mod=readonly $(BUILD_FLAGS) -o $(SIDECAR_OUT) $(SIDECAR_PKG)
+	@$(GO_ENV_BUILD) $(GO) build -mod=readonly $(SIDECAR_BUILD_FLAGS) -o $(SIDECAR_OUT) $(SIDECAR_PKG)
 
 clean: ## Remove build artifacts
 	@rm -rf $(BIN_DIR)

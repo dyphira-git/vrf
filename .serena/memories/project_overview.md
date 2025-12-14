@@ -12,11 +12,12 @@
 - **ABCI integration**: vote extensions + verification + finalize/preblock logic to incorporate randomness into consensus deterministically.
 - **On-chain module (`x/vrf`)**: stores beacons/params and exposes gRPC queries (and related client wiring).
 
-## Repo structure (selected)
+## Repo structure
 
 - `cmd/sidecar/`: `sidecar` binary entrypoint.
+- `cmd/chaind/`: cosmos sdk chain binary entrypoint.
 - `sidecar/`: sidecar implementation (config, drand service, errors, types).
+- `app`: Cosmos SDK App implementation
 - `x/vrf/abci/`: ABCI++ vote extension + proposal/preblock plumbing.
-- `x/vrf/`: Cosmos SDK module implementation.
-- `x/vrf/config/`: Cosmos SDK app config schema.
-- `proto/`: protobuf definitions.
+- `x/vrf/ante`: Emergency Msg ante handler.
+- `proto/`: protobuf definitions for sidecar and chain.

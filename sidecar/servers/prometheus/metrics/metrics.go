@@ -9,8 +9,15 @@ import (
 type FetchResult string
 
 const (
-	FetchSuccess FetchResult = "success"
-	FetchFailure FetchResult = "failure"
+	FetchSuccess      FetchResult = "success"
+	FetchTimeout      FetchResult = "timeout"
+	FetchHTTPError    FetchResult = "http_error"
+	FetchNotFound     FetchResult = "not_found"
+	FetchDecodeError  FetchResult = "decode_error"
+	FetchHashMismatch FetchResult = "hash_mismatch"
+	FetchBadSignature FetchResult = "bad_signature"
+	FetchWrongRound   FetchResult = "wrong_round"
+	FetchOther        FetchResult = "other"
 )
 
 type Metrics interface {
@@ -18,6 +25,9 @@ type Metrics interface {
 	AddDrandFetch(result FetchResult)
 	SetDrandProcessHealthy(healthy bool)
 	ObserveTimeSinceLastSuccess(seconds float64)
+
+	AddGRPCRateLimitRejected(method string)
+	ObserveGRPCConcurrencyWait(method string, seconds float64)
 }
 
 type nopMetrics struct{}
@@ -28,6 +38,9 @@ func (nopMetrics) SetDrandLatestRound(uint64)          {}
 func (nopMetrics) AddDrandFetch(FetchResult)           {}
 func (nopMetrics) SetDrandProcessHealthy(bool)         {}
 func (nopMetrics) ObserveTimeSinceLastSuccess(float64) {}
+func (nopMetrics) AddGRPCRateLimitRejected(string)     {}
+func (nopMetrics) ObserveGRPCConcurrencyWait(string, float64) {
+}
 
 func NewFromConfig(enabled bool, chainID string) (Metrics, error) {
 	if !enabled {
@@ -48,6 +61,9 @@ type promMetrics struct {
 	drandFetchCounter         *prometheus.CounterVec
 	drandProcessHealthy       *prometheus.GaugeVec
 	drandTimeSinceLastSuccess *prometheus.GaugeVec
+
+	grpcRateLimitRejected *prometheus.CounterVec
+	grpcConcurrencyWait   *prometheus.HistogramVec
 }
 
 func newPromMetrics(chainID string) *promMetrics {
@@ -73,6 +89,17 @@ func newPromMetrics(chainID string) *promMetrics {
 			Name:      "vrf_drand_time_since_last_successful_fetch_seconds",
 			Help:      "Seconds since last successful drand fetch",
 		}, []string{"chain_id"}),
+		grpcRateLimitRejected: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: "app",
+			Name:      "vrf_grpc_rate_limit_rejected_total",
+			Help:      "Count of gRPC requests rejected by the sidecar rate limiter",
+		}, []string{"chain_id", "method"}),
+		grpcConcurrencyWait: prometheus.NewHistogramVec(prometheus.HistogramOpts{
+			Namespace: "app",
+			Name:      "vrf_grpc_concurrency_wait_seconds",
+			Help:      "Seconds spent waiting to acquire the gRPC concurrency semaphore",
+			Buckets:   prometheus.ExponentialBuckets(0.001, 2, 12), // 1ms -> ~2s
+		}, []string{"chain_id", "method"}),
 	}
 }
 
@@ -82,6 +109,8 @@ func (m *promMetrics) register() error {
 		m.drandFetchCounter,
 		m.drandProcessHealthy,
 		m.drandTimeSinceLastSuccess,
+		m.grpcRateLimitRejected,
+		m.grpcConcurrencyWait,
 	} {
 		if err := prometheus.Register(c); err != nil {
 			var already prometheus.AlreadyRegisteredError
@@ -121,4 +150,18 @@ func (m *promMetrics) ObserveTimeSinceLastSuccess(seconds float64) {
 	m.drandTimeSinceLastSuccess.With(prometheus.Labels{
 		"chain_id": m.chainID,
 	}).Set(seconds)
+}
+
+func (m *promMetrics) AddGRPCRateLimitRejected(method string) {
+	m.grpcRateLimitRejected.With(prometheus.Labels{
+		"chain_id": m.chainID,
+		"method":   method,
+	}).Inc()
+}
+
+func (m *promMetrics) ObserveGRPCConcurrencyWait(method string, seconds float64) {
+	m.grpcConcurrencyWait.With(prometheus.Labels{
+		"chain_id": m.chainID,
+		"method":   method,
+	}).Observe(seconds)
 }

@@ -97,10 +97,7 @@ type App struct {
 	// modules
 	ModuleManager      *module.Manager
 	BasicModuleManager module.BasicManager
-
-	// simulation
-	configurator module.Configurator
-	sm           *module.SimulationManager
+	configurator       module.Configurator
 
 	vrfClient vrfsidecar.Client
 }
@@ -477,7 +474,7 @@ func (app *App) RegisterNodeService(clientCtx client.Context, cfg config.Config)
 
 // SimulationManager implements the SimulationApp interface
 func (app *App) SimulationManager() *module.SimulationManager {
-	return app.sm
+	return nil
 }
 
 // configure store loader that checks if version == upgradeHeight and applies store upgrades

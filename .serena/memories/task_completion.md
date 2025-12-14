@@ -6,4 +6,4 @@ Before handing off a change:
 - Run lint: `make lint`
 - Run unit tests: `make test`
 - If protobuf/API changes: `make proto-all`
-- Ensure new behavior is deterministic for consensus-critical code paths (ABCI vote extensions / preblock).
+- Ensure new behavior is deterministic for consensus-critical code paths.
