@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -33,6 +34,12 @@ type testDrandFixture struct {
 	cfg Config
 
 	beacons map[uint64]drandHTTPBeacon
+}
+
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
 }
 
 func newTestDrandFixture(t *testing.T) *testDrandFixture {
@@ -266,4 +273,86 @@ func TestDrandService_CachesLatest(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, int64(1), latestCalls.Load())
+}
+
+func TestDrandService_RandomnessRequestUsesStaticBaseAndCanonicalPath(t *testing.T) {
+	fx := newTestDrandFixture(t)
+	srv, _ := newTestDrandServer(t, fx, 2)
+	fx.cfg.DrandHTTP = srv.URL
+
+	baseURL, err := url.Parse(fx.cfg.DrandHTTP)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	t.Cleanup(cancel)
+
+	svc, err := NewDrandService(ctx, fx.cfg, zap.NewNop(), sidecarmetrics.NewNop())
+	require.NoError(t, err)
+
+	chainHex := hex.EncodeToString(fx.cfg.ChainHash)
+	transport := http.DefaultTransport
+
+	t.Run("latest_round_0", func(t *testing.T) {
+		var captured url.URL
+		haveCaptured := make(chan struct{}, 1)
+
+		svc.httpClient.Transport = roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+			if strings.HasSuffix(req.URL.Path, "/public/latest") {
+				captured = *req.URL
+				select {
+				case haveCaptured <- struct{}{}:
+				default:
+				}
+			}
+			return transport.RoundTrip(req)
+		})
+
+		_, err := svc.Randomness(ctx, 0)
+		require.NoError(t, err)
+
+		select {
+		case <-haveCaptured:
+		case <-time.After(2 * time.Second):
+			t.Fatalf("expected to capture drand /public/latest request URL")
+		}
+
+		require.Equal(t, baseURL.Scheme, captured.Scheme)
+		require.Equal(t, baseURL.Host, captured.Host)
+		require.Equal(t, "/"+chainHex+"/public/latest", captured.Path)
+		require.Empty(t, captured.RawQuery)
+		require.Empty(t, captured.Fragment)
+	})
+
+	t.Run("explicit_round_gt_0", func(t *testing.T) {
+		const round uint64 = 2
+
+		var captured url.URL
+		haveCaptured := make(chan struct{}, 1)
+
+		svc.httpClient.Transport = roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+			if strings.HasSuffix(req.URL.Path, "/public/"+strconv.FormatUint(round, 10)) {
+				captured = *req.URL
+				select {
+				case haveCaptured <- struct{}{}:
+				default:
+				}
+			}
+			return transport.RoundTrip(req)
+		})
+
+		_, err := svc.Randomness(ctx, round)
+		require.NoError(t, err)
+
+		select {
+		case <-haveCaptured:
+		case <-time.After(2 * time.Second):
+			t.Fatalf("expected to capture drand /public/<round> request URL")
+		}
+
+		require.Equal(t, baseURL.Scheme, captured.Scheme)
+		require.Equal(t, baseURL.Host, captured.Host)
+		require.Equal(t, "/"+chainHex+"/public/"+strconv.FormatUint(round, 10), captured.Path)
+		require.Empty(t, captured.RawQuery)
+		require.Empty(t, captured.Fragment)
+	})
 }
