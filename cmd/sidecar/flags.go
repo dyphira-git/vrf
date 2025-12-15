@@ -31,6 +31,9 @@ type cliConfig struct {
 	DrandControlAddr   string
 	DrandDataDir       string
 	DrandBinary        string
+	DrandNoRestart     bool
+	DrandRestartMin    time.Duration
+	DrandRestartMax    time.Duration
 	DrandVersionCheck  string
 	DrandChainHashHex  string
 	DrandPublicKeyB64  string
@@ -69,6 +72,9 @@ func parseFlags(args []string) (cliConfig, bool, error) {
 	drandDataDir := fs.String("drand-data-dir", "", "drand data directory (required when --drand-supervise)")
 
 	drandBinary := fs.String("drand-binary", "drand", "path to drand binary")
+	drandNoRestart := fs.Bool("drand-no-restart", false, "do not restart drand subprocess after it exits (debugging)")
+	drandRestartMin := fs.Duration("drand-restart-backoff-min", 1*time.Second, "minimum delay before restarting drand after exit")
+	drandRestartMax := fs.Duration("drand-restart-backoff-max", 30*time.Second, "maximum delay between drand restart attempts")
 	drandVersionCheck := fs.String("drand-version-check", "strict", "drand version check mode (strict|off)")
 	chainHashHex := fs.String("drand-chain-hash", "", "expected drand chain hash (hex)")
 	publicKeyB64 := fs.String("drand-public-key", "", "expected drand group public key (base64)")
@@ -104,6 +110,9 @@ func parseFlags(args []string) (cliConfig, bool, error) {
 		DrandControlAddr:    *drandControl,
 		DrandDataDir:        *drandDataDir,
 		DrandBinary:         *drandBinary,
+		DrandNoRestart:      *drandNoRestart,
+		DrandRestartMin:     *drandRestartMin,
+		DrandRestartMax:     *drandRestartMax,
 		DrandVersionCheck:   *drandVersionCheck,
 		DrandChainHashHex:   *chainHashHex,
 		DrandPublicKeyB64:   *publicKeyB64,

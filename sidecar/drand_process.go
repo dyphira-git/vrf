@@ -3,6 +3,7 @@ package sidecar
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -17,6 +18,13 @@ import (
 	sidecarmetrics "github.com/vexxvakan/vrf/sidecar/servers/prometheus/metrics"
 )
 
+var (
+	execCommand = exec.Command
+	timeAfter   = time.After
+
+	errInvalidRestartBackoff = errors.New("invalid drand restart backoff config")
+)
+
 // DrandProcessConfig configures the supervised drand subprocess.
 type DrandProcessConfig struct {
 	BinaryPath string
@@ -27,6 +35,18 @@ type DrandProcessConfig struct {
 	ControlListen string
 
 	ExtraArgs []string
+
+	// DisableRestart disables the automatic restart loop on unexpected exit.
+	// Intended for debugging and operator control.
+	DisableRestart bool
+
+	// RestartBackoffMin is the minimum delay before attempting a restart.
+	// Defaults to 1s when unset.
+	RestartBackoffMin time.Duration
+
+	// RestartBackoffMax caps the exponential backoff delay between restarts.
+	// Defaults to 30s when unset.
+	RestartBackoffMax time.Duration
 }
 
 // DrandProcess supervises a local drand daemon process.
@@ -40,6 +60,10 @@ type DrandProcess struct {
 
 	mu  sync.Mutex
 	cmd *exec.Cmd
+
+	restartCount      int
+	restartBackoffMin time.Duration
+	restartBackoffMax time.Duration
 
 	done chan struct{}
 }
@@ -78,16 +102,23 @@ func StartDrandProcess(
 		return nil, fmt.Errorf("creating drand data dir: %w", err)
 	}
 
+	restartMin, restartMax, err := normalizeRestartBackoff(cfg.RestartBackoffMin, cfg.RestartBackoffMax)
+	if err != nil {
+		return nil, err
+	}
+
 	ctx, cancel := context.WithCancel(parentCtx)
 	p := &DrandProcess{
 		cfg: cfg,
 		logger: logger.With(
 			zap.String("component", "sidecar-drand-process"),
 		),
-		metrics: m,
-		ctx:     ctx,
-		cancel:  cancel,
-		done:    make(chan struct{}),
+		metrics:           m,
+		ctx:               ctx,
+		cancel:            cancel,
+		restartBackoffMin: restartMin,
+		restartBackoffMax: restartMax,
+		done:              make(chan struct{}),
 	}
 
 	// Ensure drand is started successfully at least once.
@@ -103,29 +134,57 @@ func StartDrandProcess(
 func (p *DrandProcess) supervise() {
 	defer close(p.done)
 
-	backoff := time.Second
+	backoff := p.restartBackoffMin
 	for {
 		err := p.waitCurrent()
+		exitCode, exitCodeOK := exitCodeFromWaitErr(err)
 
 		p.metrics.SetDrandProcessHealthy(false)
 		if p.ctx.Err() != nil {
 			return
 		}
 
-		p.logger.Warn("drand process exited; restarting", zap.Error(err))
+		exitFields := []zap.Field{
+			zap.Int("restart_count", p.restartCount),
+			zap.Error(err),
+		}
+		if exitCodeOK {
+			exitFields = append(exitFields, zap.Int("exit_code", exitCode))
+		}
+		p.logger.Warn("drand process exited", exitFields...)
+
+		if p.cfg.DisableRestart {
+			p.logger.Info(
+				"drand restart disabled; not restarting",
+				zap.Int("restart_count", p.restartCount),
+			)
+			return
+		}
+
+		p.restartCount++
+		restartFields := []zap.Field{
+			zap.Int("restart_count", p.restartCount),
+			zap.Duration("backoff", backoff),
+		}
+		if exitCodeOK {
+			restartFields = append(restartFields, zap.Int("exit_code", exitCode))
+		}
+		p.logger.Warn("restarting drand process", restartFields...)
 
 		select {
-		case <-time.After(backoff):
+		case <-timeAfter(backoff):
 		case <-p.ctx.Done():
 			return
 		}
 
-		if backoff < 30*time.Second {
-			backoff *= 2
-		}
+		backoff = nextBackoff(backoff, p.restartBackoffMax)
 
 		if err := p.startOnce(); err != nil {
-			p.logger.Error("failed to restart drand; retrying", zap.Error(err))
+			p.logger.Error(
+				"failed to restart drand; retrying",
+				zap.Int("restart_count", p.restartCount),
+				zap.Error(err),
+			)
 		}
 	}
 }
@@ -145,7 +204,7 @@ func (p *DrandProcess) startOnce() error {
 	}
 	args = append(args, p.cfg.ExtraArgs...)
 
-	cmd := exec.Command(bin, args...) //nolint:gosec
+	cmd := execCommand(bin, args...) //nolint:gosec
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -165,7 +224,11 @@ func (p *DrandProcess) startOnce() error {
 	p.mu.Unlock()
 
 	p.metrics.SetDrandProcessHealthy(true)
-	p.logger.Info("started drand daemon", zap.Int("pid", cmd.Process.Pid))
+	p.logger.Info(
+		"started drand daemon",
+		zap.Int("pid", cmd.Process.Pid),
+		zap.Int("restart_count", p.restartCount),
+	)
 
 	go p.pipeToLogger(stdout, "stdout")
 	go p.pipeToLogger(stderr, "stderr")
@@ -188,7 +251,15 @@ func (p *DrandProcess) waitCurrent() error {
 		return fmt.Errorf("drand process is not started")
 	}
 
-	return cmd.Wait()
+	err := cmd.Wait()
+
+	p.mu.Lock()
+	if p.cmd == cmd {
+		p.cmd = nil
+	}
+	p.mu.Unlock()
+
+	return err
 }
 
 func (p *DrandProcess) pipeToLogger(r io.ReadCloser, stream string) {
@@ -203,6 +274,47 @@ func (p *DrandProcess) pipeToLogger(r io.ReadCloser, stream string) {
 
 		p.logger.Info("drand", zap.String("stream", stream), zap.String("line", line))
 	}
+}
+
+func normalizeRestartBackoff(min, max time.Duration) (time.Duration, time.Duration, error) {
+	if min <= 0 {
+		min = time.Second
+	}
+	if max <= 0 {
+		max = 30 * time.Second
+	}
+
+	if max < min {
+		return 0, 0, fmt.Errorf("%w: max must be >= min (min=%s max=%s)", errInvalidRestartBackoff, min, max)
+	}
+	return min, max, nil
+}
+
+func nextBackoff(current, max time.Duration) time.Duration {
+	if current >= max {
+		return max
+	}
+	next := current * 2
+	if next > max {
+		return max
+	}
+	return next
+}
+
+func exitCodeFromWaitErr(err error) (int, bool) {
+	if err == nil {
+		return 0, true
+	}
+
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		code := exitErr.ExitCode()
+		if code >= 0 {
+			return code, true
+		}
+	}
+
+	return 0, false
 }
 
 // Stop terminates the supervised drand process and stops further restarts.

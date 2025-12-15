@@ -138,11 +138,14 @@ func run() int {
 			}
 
 			drandCtl = newDrandController(ctx, sidecar.DrandProcessConfig{
-				BinaryPath:    drandCfg.BinaryPath,
-				DataDir:       drandCfg.DrandDataDir,
-				PrivateListen: drandCfg.DrandPrivateListen,
-				PublicListen:  drandCfg.DrandPublicListen,
-				ControlListen: drandCfg.DrandControlListen,
+				BinaryPath:        drandCfg.BinaryPath,
+				DataDir:           drandCfg.DrandDataDir,
+				PrivateListen:     drandCfg.DrandPrivateListen,
+				PublicListen:      drandCfg.DrandPublicListen,
+				ControlListen:     drandCfg.DrandControlListen,
+				DisableRestart:    cfg.DrandNoRestart,
+				RestartBackoffMin: cfg.DrandRestartMin,
+				RestartBackoffMax: cfg.DrandRestartMax,
 			}, logger, metrics)
 		}
 
@@ -175,11 +178,14 @@ func run() int {
 			}
 
 			proc, err = sidecar.StartDrandProcess(ctx, sidecar.DrandProcessConfig{
-				BinaryPath:    drandCfg.BinaryPath,
-				DataDir:       drandCfg.DrandDataDir,
-				PrivateListen: drandCfg.DrandPrivateListen,
-				PublicListen:  drandCfg.DrandPublicListen,
-				ControlListen: drandCfg.DrandControlListen,
+				BinaryPath:        drandCfg.BinaryPath,
+				DataDir:           drandCfg.DrandDataDir,
+				PrivateListen:     drandCfg.DrandPrivateListen,
+				PublicListen:      drandCfg.DrandPublicListen,
+				ControlListen:     drandCfg.DrandControlListen,
+				DisableRestart:    cfg.DrandNoRestart,
+				RestartBackoffMin: cfg.DrandRestartMin,
+				RestartBackoffMax: cfg.DrandRestartMax,
 			}, logger, metrics)
 			if err != nil {
 				logger.Error("failed to start drand subprocess", zap.Error(err))
