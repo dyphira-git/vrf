@@ -1,0 +1,60 @@
+# Some of Serena's tools are just outputting a fixed text block without doing anything else.
+# Such tools are meant to encourage the agent to think in a certain way, to stay on track
+# and so on. The (templates for) outputs of these tools are contained here.
+prompts:
+  onboarding_prompt: |
+    Your task is to assemble relevant high-level information about the project which
+    will be saved to memory files in the following steps.
+    The information should be sufficient to understand what the project is about,
+    and the most important commands for developing code.
+    The project is being developed on the system: {{ system }}.
+
+    You need to identify at least the following information:
+    * the project's purpose
+    * the tech stack used
+    * the code style and conventions used (including naming, type hints, docstrings, etc.)
+    * which commands to run when a task is completed (linting, formatting, testing, etc.)
+    * the rough structure of the codebase
+    * the commands for testing, formatting, and linting
+    * the commands for running the entrypoints of the project
+    * whether there are particular guidelines, styles, design patterns, etc. that one should know about
+
+    This list is not exhaustive, you can add more information if you think it is relevant.
+
+    After collecting all the information, you will use the `write_memory` tool (by using the tool multiple times in parallel) to save it to various memory files.
+    A particularly important memory file will be the `suggested_commands.md` file, which should contain
+    a list of commands that any agent NEEDS to know about to develop code in this project.
+    Moreover, you should create memory files for the style and conventions.
+    **Important**: after done with the onboarding task, remember to call the `write_memory` to save the collected information!
+
+  think_about_collected_information: |
+    Re-read the issue or task carefully. Did you collect enough information?
+    If not, can the missing information be acquired by using the available tools,
+    in particular the tools related to symbol discovery? Think about it step by step
+    and give a summary of the missing information and how it could be acquired.
+
+  think_about_task_adherence: |
+    Read style_and_conventions from memory again to see whether
+    your implementation is fully aligned with the code style,
+    conventions, and guidelines of the project? If not, adjust your
+    implementation accordingly before modifying any code into the codebase.
+    Get a refresher on the corresponding issue to check task progress with great detail.
+
+  think_about_whether_you_are_done: |
+    Read "github_issue_completion" from memory.
+
+  summarize_changes: |
+    Summarize all the changes you have made to the codebase over the course of the conversation.
+    Explore the diff if needed (e.g. by using `git diff`) to ensure that you have not missed anything.
+    Explain whether and how the changes are covered by tests. Explain how to best use the new code, how to understand it,
+    which existing code it affects and interacts with. Are there any dangers (like potential breaking changes or potential new problems)
+    that the user should be aware of? Should any new documentation be written or existing documentation updated?
+    You can use tools to explore the codebase prior to writing the summary, but don't write any new code in this step until
+    the summary is complete.
+
+  prepare_for_new_conversation: |
+    You have not yet completed the current task but we are running out of context.
+    {mode_prepare_for_new_conversation}
+    Imagine that you are handing over the task to another person who has access to the
+    same tools and memory files as you do, but has not been part of the conversation so far.
+    Write a summary that can be used in the next conversation to a memory file using the `write_memory` tool.

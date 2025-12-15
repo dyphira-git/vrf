@@ -23,13 +23,8 @@ streamable_shell = true
 experimental_sandbox_command_assessment = true
 
 [mcp_servers.serena]
-command = "bash"
-args = ["/Users/vexx/Repos/vrf/.codex/mcp/serena.sh"]
-env_vars = ["GITHUB_PERSONAL_ACCESS_TOKEN", "GITHUB_TOOLSETS"]
+url = "http://localhost:9121/mcp"
 disabled_tools = ["list_memories"]
-startup_timeout_sec = 120
-[mcp_servers.serena.env]
-SERENA_DOCKER = "1"
 
 [mcp_servers.github]
 command = "bash"
