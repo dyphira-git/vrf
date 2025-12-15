@@ -6,7 +6,10 @@ Use when the user asks to **fix an issue end-to-end** (understand → code chang
 - Understand scope: `mcp__github__issue_read`
 - Status updates: `mcp__github__add_issue_comment`
 
-## ALWAYS, and this is EXTREMELY IMPORTANT, run `git worktree add -b fix/issur-nr worktrees/fix-issue main`
+## ALWAYS, and this is EXTREMELY IMPORTANT, run `git worktree add -b fix,feat,style/<issur-number> worktrees/fix,feat,docs-<issue-number> main`
+
+### Important
+Prefer using the multi_tool_use.parallel function in combination with either github tools or serena code search tools.
 
 ## Required Flow (Test driven development, follow extremely closely)
 1. Read issue: `mcp__github__issue_read(method:"get", owner, repo, issue_number)` + `get_comments`

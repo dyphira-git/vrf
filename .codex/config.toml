@@ -1,0 +1,48 @@
+model = "gpt-5.2"
+model_reasoning_effort = "xhigh"
+model_reasoning_summary = "none"
+model_verbosity = "low"
+model_reasoning_summary_format = "experimental"
+model_context_window = 250000
+model_max_output_tokens = 128000
+
+# experimental_instructions_file = "instructions.txt"
+
+approval_policy = "never"
+sandbox_mode = "danger-full-access"
+
+[sandbox_danger-full-access]
+network_access = true
+
+[features]
+rmcp_client = true
+web_search_request = true
+unified_exec = false
+skills = true
+streamable_shell = true
+experimental_sandbox_command_assessment = true
+
+[mcp_servers.serena]
+command = "bash"
+args = ["/Users/vexx/Repos/vrf/.codex/mcp/serena.sh"]
+env_vars = ["GITHUB_PERSONAL_ACCESS_TOKEN", "GITHUB_TOOLSETS"]
+disabled_tools = ["list_memories"]
+startup_timeout_sec = 120
+[mcp_servers.serena.env]
+SERENA_DOCKER = "1"
+
+[mcp_servers.github]
+command = "bash"
+args = ["/Users/vexx/Repos/vrf/.codex/mcp/github.sh"]
+env_vars = ["GITHUB_PERSONAL_ACCESS_TOKEN", "GITHUB_TOOLSETS"]
+disabled_tools = [
+    "assign_copilot_to_issue",
+    "request_copilot_review",
+    "delete_file",
+    "create_or_update_file",
+    "merge_pull_request",
+]
+
+[notice]
+hide_full_access_warning = true
+"hide_gpt-5.1-codex-max_migration_prompt" = true

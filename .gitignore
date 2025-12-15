@@ -41,3 +41,9 @@ run.go
 oracle.json
 
 .env
+
+.codex/log
+.codex/sessions
+.codex/auth.json
+.codex/history.jsonl
+.codex/version.json
