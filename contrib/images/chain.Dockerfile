@@ -61,7 +61,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 # --------------------------------------------------------
 
 FROM alpine:${ALPINE_VERSION}
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates jq
 COPY --from=builder /vrf/bin/chaind /bin/chaind
 
 ENV HOME=/.vrf

@@ -121,8 +121,10 @@ func mustMakeRecoveredSig(t *testing.T, scheme *crypto.Scheme, pubPoly *share.Pu
 	return sig
 }
 
-func newTestDrandServer(t *testing.T, fx *testDrandFixture, latestRound uint64) (*httptest.Server, *atomic.Int64) {
+func newTestDrandServer(t *testing.T, fx *testDrandFixture) (*httptest.Server, *atomic.Int64) {
 	t.Helper()
+
+	const latestRound uint64 = 2
 
 	var latestCalls atomic.Int64
 	chainHex := hex.EncodeToString(fx.cfg.ChainHash)
@@ -168,7 +170,7 @@ func newTestDrandServer(t *testing.T, fx *testDrandFixture, latestRound uint64) 
 
 func TestDrandService_VerifiesBeaconsAndDerivesRandomness(t *testing.T) {
 	fx := newTestDrandFixture(t)
-	srv, _ := newTestDrandServer(t, fx, 2)
+	srv, _ := newTestDrandServer(t, fx)
 	fx.cfg.DrandHTTP = srv.URL
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -202,7 +204,7 @@ func TestDrandService_BadSignature(t *testing.T) {
 		Randomness:        hex.EncodeToString(crypto.RandomnessFromSignature(badSigBytes)),
 	}
 
-	srv, _ := newTestDrandServer(t, fx, 2)
+	srv, _ := newTestDrandServer(t, fx)
 	fx.cfg.DrandHTTP = srv.URL
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -224,7 +226,7 @@ func TestDrandService_HashMismatch(t *testing.T) {
 		Randomness: strings.Repeat("00", 32),
 	}
 
-	srv, _ := newTestDrandServer(t, fx, 2)
+	srv, _ := newTestDrandServer(t, fx)
 	fx.cfg.DrandHTTP = srv.URL
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -242,7 +244,7 @@ func TestDrandService_WrongRound(t *testing.T) {
 	fx := newTestDrandFixture(t)
 	fx.beacons[5] = fx.beacons[2]
 
-	srv, _ := newTestDrandServer(t, fx, 2)
+	srv, _ := newTestDrandServer(t, fx)
 	fx.cfg.DrandHTTP = srv.URL
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -258,7 +260,7 @@ func TestDrandService_WrongRound(t *testing.T) {
 
 func TestDrandService_CachesLatest(t *testing.T) {
 	fx := newTestDrandFixture(t)
-	srv, latestCalls := newTestDrandServer(t, fx, 2)
+	srv, latestCalls := newTestDrandServer(t, fx)
 	fx.cfg.DrandHTTP = srv.URL
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -277,7 +279,7 @@ func TestDrandService_CachesLatest(t *testing.T) {
 
 func TestDrandService_RandomnessRequestUsesStaticBaseAndCanonicalPath(t *testing.T) {
 	fx := newTestDrandFixture(t)
-	srv, _ := newTestDrandServer(t, fx, 2)
+	srv, _ := newTestDrandServer(t, fx)
 	fx.cfg.DrandHTTP = srv.URL
 
 	baseURL, err := url.Parse(fx.cfg.DrandHTTP)
@@ -313,7 +315,7 @@ func TestDrandService_RandomnessRequestUsesStaticBaseAndCanonicalPath(t *testing
 		select {
 		case <-haveCaptured:
 		case <-time.After(2 * time.Second):
-			t.Fatalf("expected to capture drand /public/latest request URL")
+			t.Fatal("expected to capture drand /public/latest request URL")
 		}
 
 		require.Equal(t, baseURL.Scheme, captured.Scheme)
@@ -346,7 +348,7 @@ func TestDrandService_RandomnessRequestUsesStaticBaseAndCanonicalPath(t *testing
 		select {
 		case <-haveCaptured:
 		case <-time.After(2 * time.Second):
-			t.Fatalf("expected to capture drand /public/<round> request URL")
+			t.Fatal("expected to capture drand /public/<round> request URL")
 		}
 
 		require.Equal(t, baseURL.Scheme, captured.Scheme)

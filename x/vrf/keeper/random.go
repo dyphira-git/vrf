@@ -3,11 +3,18 @@ package keeper
 import (
 	"crypto/sha256"
 	"encoding/binary"
-	"fmt"
+	"errors"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/vexxvakan/vrf/x/vrf/types"
+)
+
+var (
+	errGetBeaconWhileDisabled           = errors.New("vrf: GetBeacon called while VRF is disabled")
+	errExpandRandomnessCountZero        = errors.New("vrf: ExpandRandomness requires count > 0")
+	errDeriveRandomWordsCountZero       = errors.New("vrf: deriveRandomWords requires count > 0")
+	errDeriveRandomWordsEmptyRandomness = errors.New("vrf: deriveRandomWords requires non-empty beacon randomness")
 )
 
 // GetBeacon returns the VrfBeacon for the current context height
@@ -15,16 +22,18 @@ import (
 //   - If VrfParams.enabled == false, returns an error.
 //   - If there is no VrfBeacon for the current height, returns an error.
 func (k Keeper) GetBeacon(ctx sdk.Context) (types.VrfBeacon, error) {
-	params, err := k.GetParams(ctx.Context())
+	storeCtx := sdk.WrapSDKContext(ctx)
+
+	params, err := k.GetParams(storeCtx)
 	if err != nil {
 		return types.VrfBeacon{}, err
 	}
 
 	if !params.Enabled {
-		return types.VrfBeacon{}, fmt.Errorf("vrf: GetBeacon called while VRF is disabled")
+		return types.VrfBeacon{}, errGetBeaconWhileDisabled
 	}
 
-	beacon, err := k.GetLatestBeacon(ctx.Context())
+	beacon, err := k.GetLatestBeacon(storeCtx)
 	if err != nil {
 		return types.VrfBeacon{}, err
 	}
@@ -45,7 +54,7 @@ func (k Keeper) ExpandRandomness(
 	userSeed []byte,
 ) (types.VrfBeacon, [][]byte, error) {
 	if count == 0 {
-		return types.VrfBeacon{}, nil, fmt.Errorf("vrf: ExpandRandomness requires count > 0")
+		return types.VrfBeacon{}, nil, errExpandRandomnessCountZero
 	}
 
 	beacon, err := k.GetBeacon(ctx)
@@ -70,11 +79,11 @@ func deriveRandomWords(
 	userSeed []byte,
 ) ([][]byte, error) {
 	if count == 0 {
-		return nil, fmt.Errorf("vrf: deriveRandomWords requires count > 0")
+		return nil, errDeriveRandomWordsCountZero
 	}
 
 	if len(beacon.Randomness) == 0 {
-		return nil, fmt.Errorf("vrf: deriveRandomWords requires non-empty beacon randomness")
+		return nil, errDeriveRandomWordsEmptyRandomness
 	}
 
 	out := make([][]byte, 0, count)

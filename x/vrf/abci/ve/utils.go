@@ -3,6 +3,7 @@ package ve
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 
@@ -17,6 +18,24 @@ import (
 	"cosmossdk.io/core/comet"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+)
+
+var (
+	errVoteExtSignatureMissing               = errors.New("vote extension signature is missing")
+	errNonCommitVoteExtPresent               = errors.New("non-commit vote extension present")
+	errNonCommitVoteExtSignaturePresent      = errors.New("non-commit vote extension signature present")
+	errVoteExtPresentButDisabled             = errors.New("vote extension present but extensions disabled")
+	errVoteExtSignaturePresentButDisabled    = errors.New("vote extension signature present but extensions disabled")
+	errVerifyVoteExtSignatureFailed          = errors.New("failed to verify validator vote extension signature")
+	errTotalVotingPowerNonPositive           = errors.New("total voting power must be positive")
+	errInsufficientVoteExtensionVotingPower  = errors.New("insufficient cumulative voting power received to verify vote extensions")
+	errExtendedCommitRoundMismatch           = errors.New("extended commit round does not match last commit round")
+	errExtendedCommitVotesLenMismatch        = errors.New("extended commit votes length does not match last commit votes length")
+	errExtendedCommitVotesNotSorted          = errors.New("extended commit votes are not sorted by voting power")
+	errExtendedCommitVoteAddressDuplicated   = errors.New("extended commit vote address is duplicated")
+	errExtendedCommitVoteAddressMismatch     = errors.New("extended commit vote address does not match last commit vote address")
+	errExtendedCommitVotePowerMismatch       = errors.New("extended commit vote power does not match last commit vote power")
+	errExtendedCommitVoteBlockIDFlagMismatch = errors.New("mismatched block ID flag between extended commit vote and last proposed commit")
 )
 
 // VoteExtensionsEnabled determines if vote extensions are enabled for the current block. If
@@ -89,6 +108,7 @@ func ValidateVoteExtensions(
 	currentHeight := ctx.HeaderInfo().Height
 	chainID := ctx.HeaderInfo().ChainID
 	commitInfo := ctx.CometInfo().GetLastCommit()
+	storeCtx := sdk.WrapSDKContext(ctx)
 
 	// Check that both extCommit + commit are ordered in accordance with vp/address.
 	if err := ValidateExtendedCommitAgainstLastCommit(extCommit, commitInfo); err != nil {
@@ -120,30 +140,20 @@ func ValidateVoteExtensions(
 
 		if extensionsEnabled {
 			if vote.BlockIdFlag == cmtproto.BlockIDFlagCommit && len(vote.ExtensionSignature) == 0 {
-				return fmt.Errorf("vote extension signature is missing; validator addr %s",
-					vote.Validator.String(),
-				)
+				return fmt.Errorf("%w; validator addr %s", errVoteExtSignatureMissing, vote.Validator.String())
 			}
 			if vote.BlockIdFlag != cmtproto.BlockIDFlagCommit && len(vote.VoteExtension) != 0 {
-				return fmt.Errorf("non-commit vote extension present; validator addr %s",
-					vote.Validator.String(),
-				)
+				return fmt.Errorf("%w; validator addr %s", errNonCommitVoteExtPresent, vote.Validator.String())
 			}
 			if vote.BlockIdFlag != cmtproto.BlockIDFlagCommit && len(vote.ExtensionSignature) != 0 {
-				return fmt.Errorf("non-commit vote extension signature present; validator addr %s",
-					vote.Validator.String(),
-				)
+				return fmt.Errorf("%w; validator addr %s", errNonCommitVoteExtSignaturePresent, vote.Validator.String())
 			}
 		} else { // vote extensions disabled
 			if len(vote.VoteExtension) != 0 {
-				return fmt.Errorf("vote extension present but extensions disabled; validator addr %s",
-					vote.Validator.String(),
-				)
+				return fmt.Errorf("%w; validator addr %s", errVoteExtPresentButDisabled, vote.Validator.String())
 			}
 			if len(vote.ExtensionSignature) != 0 {
-				return fmt.Errorf("vote extension signature present but extensions disabled; validator addr %s",
-					vote.Validator.String(),
-				)
+				return fmt.Errorf("%w; validator addr %s", errVoteExtSignaturePresentButDisabled, vote.Validator.String())
 			}
 
 			continue
@@ -161,7 +171,7 @@ func ValidateVoteExtensions(
 		// is a 1 block delay between the validator set update on the app and comet.
 		sumVP += vote.Validator.Power
 		valConsAddr := sdk.ConsAddress(vote.Validator.Address)
-		pubKeyProto, err := valStore.GetPubKeyByConsAddr(ctx, valConsAddr)
+		pubKeyProto, err := valStore.GetPubKeyByConsAddr(storeCtx, valConsAddr)
 		if err != nil {
 			continue
 		}
@@ -184,22 +194,19 @@ func ValidateVoteExtensions(
 		}
 
 		if !cmtPubKey.VerifySignature(extSignBytes, vote.ExtensionSignature) {
-			return fmt.Errorf("failed to verify validator %X vote extension signature", valConsAddr)
+			return fmt.Errorf("%w: validator addr %X", errVerifyVoteExtSignatureFailed, valConsAddr)
 		}
 	}
 
 	// This check is probably unnecessary, but better safe than sorry.
 	if totalVP <= 0 {
-		return fmt.Errorf("total voting power must be positive, got: %d", totalVP)
+		return fmt.Errorf("%w: got %d", errTotalVotingPowerNonPositive, totalVP)
 	}
 
 	if extensionsEnabled {
 		// If the sum of the voting power has not reached (2/3 + 1) we need to error.
 		if requiredVP := ((totalVP * 2) / 3) + 1; sumVP < requiredVP {
-			return fmt.Errorf(
-				"insufficient cumulative voting power received to verify vote extensions; got: %d, expected: >=%d",
-				sumVP, requiredVP,
-			)
+			return fmt.Errorf("%w: got %d, expected >=%d", errInsufficientVoteExtensionVotingPower, sumVP, requiredVP)
 		}
 	}
 
@@ -213,12 +220,12 @@ func ValidateVoteExtensions(
 func ValidateExtendedCommitAgainstLastCommit(ec cometabci.ExtendedCommitInfo, lc comet.CommitInfo) error {
 	// check that the rounds are the same
 	if ec.Round != lc.Round() {
-		return fmt.Errorf("extended commit round %d does not match last commit round %d", ec.Round, lc.Round())
+		return fmt.Errorf("%w: got %d, expected %d", errExtendedCommitRoundMismatch, ec.Round, lc.Round())
 	}
 
 	// check that the # of votes are the same
 	if len(ec.Votes) != lc.Votes().Len() {
-		return fmt.Errorf("extended commit votes length %d does not match last commit votes length %d", len(ec.Votes), lc.Votes().Len())
+		return fmt.Errorf("%w: got %d, expected %d", errExtendedCommitVotesLenMismatch, len(ec.Votes), lc.Votes().Len())
 	}
 
 	// check sort order of extended commit votes
@@ -228,7 +235,7 @@ func ValidateExtendedCommitAgainstLastCommit(ec cometabci.ExtendedCommitInfo, lc
 		}
 		return -int(vote1.Validator.Power - vote2.Validator.Power) // vp sorted in descending order
 	}) {
-		return fmt.Errorf("extended commit votes are not sorted by voting power")
+		return errExtendedCommitVotesNotSorted
 	}
 
 	addressCache := make(map[string]struct{}, len(ec.Votes))
@@ -236,22 +243,22 @@ func ValidateExtendedCommitAgainstLastCommit(ec cometabci.ExtendedCommitInfo, lc
 	for i, vote := range ec.Votes {
 		// cache addresses to check for duplicates
 		if _, ok := addressCache[string(vote.Validator.Address)]; ok {
-			return fmt.Errorf("extended commit vote address %X is duplicated", vote.Validator.Address)
+			return fmt.Errorf("%w: %X", errExtendedCommitVoteAddressDuplicated, vote.Validator.Address)
 		}
 		addressCache[string(vote.Validator.Address)] = struct{}{}
 
 		lcVote := lc.Votes().Get(i)
 		if !bytes.Equal(vote.Validator.Address, lcVote.Validator().Address()) {
-			return fmt.Errorf("extended commit vote address %X does not match last commit vote address %X", vote.Validator.Address, lcVote.Validator().Address())
+			return fmt.Errorf("%w: got %X, expected %X", errExtendedCommitVoteAddressMismatch, vote.Validator.Address, lcVote.Validator().Address())
 		}
 		if vote.Validator.Power != lcVote.Validator().Power() {
-			return fmt.Errorf("extended commit vote power %d does not match last commit vote power %d", vote.Validator.Power, lcVote.Validator().Power())
+			return fmt.Errorf("%w: got %d, expected %d", errExtendedCommitVotePowerMismatch, vote.Validator.Power, lcVote.Validator().Power())
 		}
 
 		// only check non-absent votes (these could have been modified via pruning in prepare proposal)
 		if vote.BlockIdFlag != cmtproto.BlockIDFlagAbsent || len(vote.VoteExtension) != 0 || len(vote.ExtensionSignature) != 0 {
 			if int32(vote.BlockIdFlag) != int32(lcVote.GetBlockIDFlag()) {
-				return fmt.Errorf("mismatched block ID flag between extended commit vote %d and last proposed commit %d", int32(vote.BlockIdFlag), int32(lcVote.GetBlockIDFlag()))
+				return fmt.Errorf("%w: vote=%d, commit=%d", errExtendedCommitVoteBlockIDFlagMismatch, int32(vote.BlockIdFlag), int32(lcVote.GetBlockIDFlag()))
 			}
 		}
 	}

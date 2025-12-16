@@ -103,26 +103,6 @@ func newPromMetrics(chainID string) *promMetrics {
 	}
 }
 
-func (m *promMetrics) register() error {
-	for _, c := range []prometheus.Collector{
-		m.drandLatestRound,
-		m.drandFetchCounter,
-		m.drandProcessHealthy,
-		m.drandTimeSinceLastSuccess,
-		m.grpcRateLimitRejected,
-		m.grpcConcurrencyWait,
-	} {
-		if err := prometheus.Register(c); err != nil {
-			var already prometheus.AlreadyRegisteredError
-			if errors.As(err, &already) {
-				continue
-			}
-			return err
-		}
-	}
-	return nil
-}
-
 func (m *promMetrics) SetDrandLatestRound(round uint64) {
 	m.drandLatestRound.With(prometheus.Labels{
 		"chain_id": m.chainID,
@@ -164,4 +144,24 @@ func (m *promMetrics) ObserveGRPCConcurrencyWait(method string, seconds float64)
 		"chain_id": m.chainID,
 		"method":   method,
 	}).Observe(seconds)
+}
+
+func (m *promMetrics) register() error {
+	for _, c := range []prometheus.Collector{
+		m.drandLatestRound,
+		m.drandFetchCounter,
+		m.drandProcessHealthy,
+		m.drandTimeSinceLastSuccess,
+		m.grpcRateLimitRejected,
+		m.grpcConcurrencyWait,
+	} {
+		if err := prometheus.Register(c); err != nil {
+			var already prometheus.AlreadyRegisteredError
+			if errors.As(err, &already) {
+				continue
+			}
+			return err
+		}
+	}
+	return nil
 }

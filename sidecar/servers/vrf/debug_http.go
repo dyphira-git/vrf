@@ -30,13 +30,13 @@ const (
 
 func (s *Server) StartDebugHTTP(ctx context.Context, addr string) error {
 	if s.svc == nil {
-		return fmt.Errorf("vrf service is nil")
+		return errVrfServiceNil
 	}
 
 	if strings.HasPrefix(addr, "unix://") {
 		path := strings.TrimPrefix(addr, "unix://")
 		if strings.TrimSpace(path) == "" {
-			return fmt.Errorf("vrf debug http unix listener path cannot be empty")
+			return errVrfDebugHTTPUnixListenerPathEmpty
 		}
 		_ = os.Remove(path)
 

@@ -14,6 +14,11 @@ type Config struct {
 	// ever used for randomness / info fetches.
 	DrandHTTP string
 
+	// DrandAllowNonLoopbackHTTP permits non-loopback drand HTTP endpoints.
+	// This is unsafe for production but useful for containerized dev setups
+	// where drand runs in a separate service on an isolated Docker network.
+	DrandAllowNonLoopbackHTTP bool
+
 	// BinaryPath is the path to the drand CLI binary. If empty, "drand" is
 	// used.
 	BinaryPath string

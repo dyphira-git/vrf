@@ -3,6 +3,7 @@ package vrf
 import (
 	"bytes"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"time"
 
@@ -24,6 +25,12 @@ import (
 	"github.com/vexxvakan/vrf/x/vrf/emergency"
 	vrfkeeper "github.com/vexxvakan/vrf/x/vrf/keeper"
 	vrftypes "github.com/vexxvakan/vrf/x/vrf/types"
+)
+
+var (
+	errNilFinalizeBlockRequest                = errors.New("vrf: received nil RequestFinalizeBlock")
+	errInconsistentBeaconsInValidSet          = errors.New("vrf: inconsistent beacons in valid set")
+	errInsufficientVotingPowerForValidBeacons = errors.New("vrf: insufficient voting power for valid beacons")
 )
 
 // PreBlockHandler verifies VRF vote extensions in FinalizeBlock and writes the
@@ -57,8 +64,10 @@ func NewPreBlockHandler(
 func (h *PreBlockHandler) WrappedPreBlocker(mm *module.Manager) sdk.PreBlocker {
 	return func(ctx sdk.Context, req *cometabci.RequestFinalizeBlock) (resp *sdk.ResponsePreBlock, err error) {
 		if req == nil {
-			return &sdk.ResponsePreBlock{}, fmt.Errorf("vrf: received nil RequestFinalizeBlock")
+			return &sdk.ResponsePreBlock{}, errNilFinalizeBlockRequest
 		}
+
+		storeCtx := sdk.WrapSDKContext(ctx)
 
 		// First, run all module PreBlockers
 		resp, err = mm.PreBlock(ctx)
@@ -115,7 +124,7 @@ func (h *PreBlockHandler) WrappedPreBlocker(mm *module.Manager) sdk.PreBlocker {
 			// An authorized emergency disable has been included in this block.
 			// Treat VRF as disabled for this height and persist the flag so
 			// subsequent heights behave as disabled as well.
-			params, paramsErr := h.keeper.GetParams(ctx.Context())
+			params, paramsErr := h.keeper.GetParams(storeCtx)
 			if paramsErr != nil {
 				return resp, fmt.Errorf("vrf: failed to load params during emergency disable: %w", paramsErr)
 			}
@@ -123,12 +132,12 @@ func (h *PreBlockHandler) WrappedPreBlocker(mm *module.Manager) sdk.PreBlocker {
 			if params.Enabled {
 				h.logger.Info("vrf: emergency disable activated", "height", ctx.BlockHeight(), "reason", reason)
 				params.Enabled = false
-				if err := h.keeper.SetParams(ctx.Context(), params); err != nil {
+				if err := h.keeper.SetParams(storeCtx, params); err != nil {
 					return resp, fmt.Errorf("vrf: failed to persist emergency disable params: %w", err)
 				}
 			}
 
-			if err := h.keeper.SetLastBlockTime(ctx.Context(), ctx.BlockTime().Unix()); err != nil {
+			if err := h.keeper.SetLastBlockTime(storeCtx, ctx.BlockTime().Unix()); err != nil {
 				return resp, fmt.Errorf("vrf: failed to update last block time after emergency disable: %w", err)
 			}
 
@@ -139,30 +148,30 @@ func (h *PreBlockHandler) WrappedPreBlocker(mm *module.Manager) sdk.PreBlocker {
 
 		if !ve.VoteExtensionsEnabled(ctx) {
 			// Still keep last block time updated for future heights
-			_ = h.keeper.SetLastBlockTime(ctx.Context(), ctx.BlockTime().Unix())
+			_ = h.keeper.SetLastBlockTime(storeCtx, ctx.BlockTime().Unix())
 			return resp, nil
 		}
 
-		params, err := h.keeper.GetParams(ctx.Context())
+		params, err := h.keeper.GetParams(storeCtx)
 		if err != nil {
 			return resp, fmt.Errorf("vrf: failed to load params in PreBlock: %w", err)
 		}
 
 		if !params.Enabled {
-			_ = h.keeper.SetLastBlockTime(ctx.Context(), ctx.BlockTime().Unix())
+			_ = h.keeper.SetLastBlockTime(storeCtx, ctx.BlockTime().Unix())
 			return resp, nil
 		}
 
-		lastTs, err := h.keeper.GetLastBlockTime(ctx.Context())
+		lastTS, err := h.keeper.GetLastBlockTime(storeCtx)
 		if err != nil {
 			return resp, fmt.Errorf("vrf: failed to load last block time in PreBlock: %w", err)
 		}
 
-		tref := time.Unix(lastTs, 0).UTC()
+		tref := time.Unix(lastTS, 0).UTC()
 		teff := tref.Add(-time.Duration(params.SafetyMarginSeconds) * time.Second)
 		targetRound := vrftypes.RoundAt(params, teff)
 		if targetRound == 0 {
-			_ = h.keeper.SetLastBlockTime(ctx.Context(), ctx.BlockTime().Unix())
+			_ = h.keeper.SetLastBlockTime(storeCtx, ctx.BlockTime().Unix())
 			return resp, nil
 		}
 
@@ -225,27 +234,35 @@ func (h *PreBlockHandler) WrappedPreBlocker(mm *module.Manager) sdk.PreBlocker {
 			if chosen == nil {
 				chosen = &b
 			} else if !equalBeacon(*chosen, b) {
-				return resp, fmt.Errorf("vrf: inconsistent beacons in valid set at height %d", ctx.BlockHeight())
+				return resp, fmt.Errorf("%w at height %d", errInconsistentBeaconsInValidSet, ctx.BlockHeight())
 			}
 
 			validVP += voteInfo.Validator.Power
 		}
 
 		if totalVP <= 0 {
-			_ = h.keeper.SetLastBlockTime(ctx.Context(), ctx.BlockTime().Unix())
+			_ = h.keeper.SetLastBlockTime(storeCtx, ctx.BlockTime().Unix())
 			return resp, nil
 		}
 
 		requiredVP := (totalVP*2)/3 + 1
 		if validVP < requiredVP || chosen == nil {
-			return resp, fmt.Errorf("vrf: insufficient voting power for valid beacons at height %d: got=%d required>=%d", ctx.BlockHeight(), validVP, requiredVP)
+			h.logger.Warn(
+				"vrf: did not receive enough VRF commits; waiting for more",
+				"height", ctx.BlockHeight(),
+				"target_round", targetRound,
+				"got_power", validVP,
+				"required_power", requiredVP,
+				"total_power", totalVP,
+			)
+			return resp, fmt.Errorf("%w at height %d: got=%d required>=%d", errInsufficientVotingPowerForValidBeacons, ctx.BlockHeight(), validVP, requiredVP)
 		}
 
-		if err := h.keeper.SetLatestBeacon(ctx.Context(), *chosen); err != nil {
+		if err := h.keeper.SetLatestBeacon(storeCtx, *chosen); err != nil {
 			return resp, fmt.Errorf("vrf: failed to store latest beacon: %w", err)
 		}
 
-		if err := h.keeper.SetLastBlockTime(ctx.Context(), ctx.BlockTime().Unix()); err != nil {
+		if err := h.keeper.SetLastBlockTime(storeCtx, ctx.BlockTime().Unix()); err != nil {
 			return resp, fmt.Errorf("vrf: failed to update last block time: %w", err)
 		}
 

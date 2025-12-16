@@ -76,7 +76,7 @@ func NewAppKeepers(
 	cdc *codec.LegacyAmino,
 	maccPerms map[string][]string,
 	appOpts servertypes.AppOptions,
-	bondDenom string,
+	_ string,
 	homePath string,
 ) AppKeepers {
 	appKeepers := AppKeepers{}

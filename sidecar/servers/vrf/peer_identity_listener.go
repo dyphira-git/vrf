@@ -1,7 +1,6 @@
 package vrf
 
 import (
-	"fmt"
 	"net"
 	"syscall"
 
@@ -35,7 +34,7 @@ func (c *peerIdentityConn) RemoteAddr() net.Addr { return c.remote }
 func (c *peerIdentityConn) SyscallConn() (syscall.RawConn, error) {
 	sysConn, ok := c.Conn.(syscall.Conn)
 	if !ok {
-		return nil, fmt.Errorf("connection does not expose a raw FD")
+		return nil, errConnNoRawFD
 	}
 	return sysConn.SyscallConn()
 }
@@ -87,12 +86,12 @@ func withPerClientUDSPeerIdentity(ln net.Listener, logger *zap.Logger) net.Liste
 
 func udsPeerToken(conn net.Conn) (string, error) {
 	if conn == nil {
-		return "", fmt.Errorf("nil conn")
+		return "", errNilConn
 	}
 
 	sysConn, ok := conn.(syscall.Conn)
 	if !ok {
-		return "", fmt.Errorf("connection does not expose a raw FD")
+		return "", errConnNoRawFD
 	}
 
 	rawConn, err := sysConn.SyscallConn()

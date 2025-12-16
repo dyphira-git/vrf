@@ -1,6 +1,7 @@
 package app
 
 import (
+	"cosmossdk.io/core/appmodule"
 	"cosmossdk.io/x/upgrade"
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 
@@ -35,27 +36,68 @@ func appModules(
 	app *App,
 	txConfig client.TxConfig,
 	appCodec codec.Codec,
-) []module.AppModule {
-	return []module.AppModule{
+) map[string]appmodule.AppModule {
+	return map[string]appmodule.AppModule{
 		// Cosmos SDK modules
-		genutil.NewAppModule(
+		genutiltypes.ModuleName: genutil.NewAppModule(
 			app.AppKeepers.AccountKeeper,
 			app.AppKeepers.StakingKeeper,
 			app,
 			txConfig,
 		),
-		auth.NewAppModule(appCodec, app.AppKeepers.AccountKeeper, nil, nil),
-		vesting.NewAppModule(app.AppKeepers.AccountKeeper, app.AppKeepers.BankKeeper),
-		bank.NewAppModule(appCodec, app.AppKeepers.BankKeeper, app.AppKeepers.AccountKeeper, nil),
-		gov.NewAppModule(appCodec, app.AppKeepers.GovKeeper, app.AppKeepers.AccountKeeper, app.AppKeepers.BankKeeper, nil),
-		slashing.NewAppModule(appCodec, app.AppKeepers.SlashingKeeper, app.AppKeepers.AccountKeeper, app.AppKeepers.BankKeeper, app.AppKeepers.StakingKeeper, nil, app.interfaceRegistry),
-		distr.NewAppModule(appCodec, app.AppKeepers.DistrKeeper, app.AppKeepers.AccountKeeper, app.AppKeepers.BankKeeper, app.AppKeepers.StakingKeeper, nil),
-		staking.NewAppModule(appCodec, app.AppKeepers.StakingKeeper, app.AppKeepers.AccountKeeper, app.AppKeepers.BankKeeper, nil),
-		upgrade.NewAppModule(app.AppKeepers.UpgradeKeeper, app.AppKeepers.AccountKeeper.AddressCodec()),
-		consensus.NewAppModule(appCodec, app.AppKeepers.ConsensusParamsKeeper),
+		authtypes.ModuleName: auth.NewAppModule(appCodec, app.AppKeepers.AccountKeeper, nil, nil),
+		vestingtypes.ModuleName: vesting.NewAppModule(
+			app.AppKeepers.AccountKeeper,
+			app.AppKeepers.BankKeeper,
+		),
+		banktypes.ModuleName: bank.NewAppModule(
+			appCodec,
+			app.AppKeepers.BankKeeper,
+			app.AppKeepers.AccountKeeper,
+			nil,
+		),
+		govtypes.ModuleName: gov.NewAppModule(
+			appCodec,
+			app.AppKeepers.GovKeeper,
+			app.AppKeepers.AccountKeeper,
+			app.AppKeepers.BankKeeper,
+			nil,
+		),
+		slashingtypes.ModuleName: slashing.NewAppModule(
+			appCodec,
+			app.AppKeepers.SlashingKeeper,
+			app.AppKeepers.AccountKeeper,
+			app.AppKeepers.BankKeeper,
+			app.AppKeepers.StakingKeeper,
+			nil,
+			app.interfaceRegistry,
+		),
+		distrtypes.ModuleName: distr.NewAppModule(
+			appCodec,
+			app.AppKeepers.DistrKeeper,
+			app.AppKeepers.AccountKeeper,
+			app.AppKeepers.BankKeeper,
+			app.AppKeepers.StakingKeeper,
+			nil,
+		),
+		stakingtypes.ModuleName: staking.NewAppModule(
+			appCodec,
+			app.AppKeepers.StakingKeeper,
+			app.AppKeepers.AccountKeeper,
+			app.AppKeepers.BankKeeper,
+			nil,
+		),
+		upgradetypes.ModuleName: upgrade.NewAppModule(
+			app.AppKeepers.UpgradeKeeper,
+			app.AppKeepers.AccountKeeper.AddressCodec(),
+		),
+		consensusparamtypes.ModuleName: consensus.NewAppModule(
+			appCodec,
+			app.AppKeepers.ConsensusParamsKeeper,
+		),
 
 		// chain modules
-		vrfmodule.NewAppModule(appCodec, app.AppKeepers.VrfKeeper),
+		vrftypes.ModuleName: vrfmodule.NewAppModule(appCodec, app.AppKeepers.VrfKeeper),
 	}
 }
 

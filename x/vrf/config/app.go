@@ -1,7 +1,7 @@
 package config
 
 import (
-	"fmt"
+	"errors"
 	"time"
 
 	"github.com/spf13/cast"
@@ -14,6 +14,11 @@ var (
 	DefaultVrfAddress    = "localhost:8090"
 	DefaultClientTimeout = 3 * time.Second
 	DefaultMetrics       = false
+
+	errVrfAddressEmpty             = errors.New("vrf address must not be empty")
+	errVrfClientTimeoutNonPositive = errors.New("vrf client timeout must be greater than 0")
+	errVrfAddressNotString         = errors.New("vrf address must be a non-empty string")
+	errVrfClientTimeoutNotDuration = errors.New("vrf client timeout must be a positive duration")
 )
 
 const (
@@ -70,11 +75,11 @@ func (c *AppConfig) ValidateBasic() error {
 	}
 
 	if len(c.VrfAddress) == 0 {
-		return fmt.Errorf("vrf address must not be empty")
+		return errVrfAddressEmpty
 	}
 
 	if c.ClientTimeout <= 0 {
-		return fmt.Errorf("vrf client timeout must be greater than 0")
+		return errVrfClientTimeoutNonPositive
 	}
 
 	return nil
@@ -101,7 +106,7 @@ func ReadConfigFromAppOpts(opts servertypes.AppOptions) (AppConfig, error) {
 	if v := opts.Get(flagVrfAddress); v != nil {
 		address, err := cast.ToStringE(v)
 		if err != nil {
-			return cfg, fmt.Errorf("vrf address must be a non-empty string")
+			return cfg, errVrfAddressNotString
 		}
 		if len(address) > 0 {
 			cfg.VrfAddress = address
@@ -111,7 +116,7 @@ func ReadConfigFromAppOpts(opts servertypes.AppOptions) (AppConfig, error) {
 	if v := opts.Get(flagClientTimeout); v != nil {
 		timeout, err := cast.ToDurationE(v)
 		if err != nil {
-			return cfg, fmt.Errorf("vrf client timeout must be a positive duration")
+			return cfg, errVrfClientTimeoutNotDuration
 		}
 		if timeout > 0 {
 			cfg.ClientTimeout = timeout

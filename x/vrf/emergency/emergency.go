@@ -1,6 +1,7 @@
 package emergency
 
 import (
+	"errors"
 	"fmt"
 
 	"google.golang.org/protobuf/types/known/anypb"
@@ -14,6 +15,15 @@ import (
 
 	vrfkeeper "github.com/vexxvakan/vrf/x/vrf/keeper"
 	vrftypes "github.com/vexxvakan/vrf/x/vrf/types"
+)
+
+var (
+	errNilSignModeHandler             = errors.New("vrf: nil sign mode handler")
+	errEmergencyDisableTxNotDedicated = errors.New("vrf: emergency disable tx must contain only MsgVrfEmergencyDisable messages")
+	errInvalidSignerCount             = errors.New("vrf: invalid number of signers")
+	errTxNotV2Adaptable               = errors.New("vrf: expected tx to implement V2AdaptableTx")
+	errSignerAccountNotFound          = errors.New("vrf: signer account does not exist")
+	errSignerPublicKeyMissing         = errors.New("vrf: missing public key for signer")
 )
 
 // VerifyEmergencyMsg performs the shared, deterministic authorization check
@@ -36,7 +46,7 @@ func VerifyEmergencyMsg(
 	signModeHandler *txsigning.HandlerMap,
 ) (found bool, authorized bool, reason string, err error) {
 	if signModeHandler == nil {
-		return false, false, "", fmt.Errorf("vrf: nil sign mode handler")
+		return false, false, "", errNilSignModeHandler
 	}
 
 	sigTx, ok := tx.(authsigning.Tx)
@@ -61,7 +71,7 @@ func VerifyEmergencyMsg(
 	// Emergency disable must be a dedicated transaction so that bypassing fees and
 	// sequence checks cannot inadvertently apply to non-emergency messages.
 	if len(emergencyMsgs) != len(msgs) {
-		return true, false, "", fmt.Errorf("vrf: emergency disable tx must contain only MsgVrfEmergencyDisable messages")
+		return true, false, "", errEmergencyDisableTxNotDedicated
 	}
 
 	// At this point we know the tx includes at least one MsgVrfEmergencyDisable.
@@ -74,12 +84,13 @@ func VerifyEmergencyMsg(
 
 	// Check allowlist: for each MsgVrfEmergencyDisable, ensure that the signer is
 	// present in x/vrf's committee allowlist.
+	storeCtx := sdk.WrapSDKContext(ctx)
 	for _, m := range emergencyMsgs {
 		if err := m.ValidateBasic(); err != nil {
 			return true, false, "", err
 		}
 
-		ok, err := vk.IsCommitteeMember(ctx.Context(), m.Authority)
+		ok, err := vk.IsCommitteeMember(storeCtx, m.Authority)
 		if err != nil {
 			return true, false, "", err
 		}
@@ -113,7 +124,7 @@ func verifySignatures(
 	}
 
 	if len(sigs) != len(signers) {
-		return fmt.Errorf("vrf: invalid number of signers; expected %d, got %d", len(signers), len(sigs))
+		return fmt.Errorf("%w; expected %d, got %d", errInvalidSignerCount, len(signers), len(sigs))
 	}
 
 	pubKeys, err := sigTx.GetPubKeys()
@@ -123,18 +134,19 @@ func verifySignatures(
 
 	adaptableTx, ok := sigTx.(authsigning.V2AdaptableTx)
 	if !ok {
-		return fmt.Errorf("vrf: expected tx to implement V2AdaptableTx, got %T", sigTx)
+		return fmt.Errorf("%w; got %T", errTxNotV2Adaptable, sigTx)
 	}
 	txData := adaptableTx.GetSigningTxData()
 
 	chainID := ctx.ChainID()
+	storeCtx := sdk.WrapSDKContext(ctx)
 
 	for i, sig := range sigs {
 		addr := sdk.AccAddress(signers[i])
 
-		acc := ak.GetAccount(ctx.Context(), addr)
+		acc := ak.GetAccount(storeCtx, addr)
 		if acc == nil {
-			return fmt.Errorf("vrf: signer account %s does not exist", addr.String())
+			return fmt.Errorf("%w: %s", errSignerAccountNotFound, addr.String())
 		}
 
 		pubKey := pubKeys[i]
@@ -143,7 +155,7 @@ func verifySignatures(
 		}
 
 		if pubKey == nil {
-			return fmt.Errorf("vrf: missing public key for signer %s", addr.String())
+			return fmt.Errorf("%w: %s", errSignerPublicKeyMissing, addr.String())
 		}
 
 		anyPk, err := codectypes.NewAnyWithValue(pubKey)

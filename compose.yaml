@@ -1,7 +1,57 @@
 name: vrf
 
 services:
+  drand1:
+    image: ${SIDECAR_IMAGE:-vrf-sidecar:dev}
+    entrypoint: ["sh", "-lc"]
+    command:
+      - exec sh /scripts/drand/start.sh
+    environment:
+      DRAND_ROLE: leader
+      DRAND_BINARY: /bin/drand
+      DRAND_ID: ${DRAND_ID:-default}
+      DRAND_SCHEME: ${DRAND_SCHEME:-pedersen-bls-chained}
+      DRAND_DATA_DIR: ${DRAND_DATA_DIR_NODE1:-/var/lib/vrf/drand/node1}
+      DRAND_PRIVATE_ADDR: ${DRAND_PRIVATE_ADDR_NODE1:-0.0.0.0:4444}
+      DRAND_PUBLIC_ADDR: ${DRAND_PUBLIC_ADDR_NODE1:-0.0.0.0:8081}
+      DRAND_CONTROL_PORT: ${DRAND_CONTROL_PORT_NODE1:-8881}
+      DRAND_KEYPAIR_ADDR: ${DRAND_KEYPAIR_ADDR_NODE1:-drand1:4444}
+      DRAND_JOINER_ADDR: ${DRAND_KEYPAIR_ADDR_NODE2:-drand2:4444}
+      DRAND_DKG_THRESHOLD: ${DRAND_DKG_THRESHOLD:-2}
+      DRAND_DKG_PERIOD_SECONDS: ${DRAND_DKG_PERIOD_SECONDS:-3}
+      DRAND_DKG_GENESIS_DELAY_SECONDS: ${DRAND_DKG_GENESIS_DELAY_SECONDS:-5}
+      VRF_RUNTIME_DIR: ${VRF_RUNTIME_DIR:-/var/run/vrf}
+      VRF_DRAND_INFO_FILE: ${VRF_DRAND_INFO_FILE:-/var/run/vrf/drand-info.json}
+    volumes:
+      - ./scripts:/scripts:ro
+      - drand-data:/var/lib/vrf/drand
+      - vrf-socket:/var/run/vrf
+    restart: unless-stopped
+
+  drand2:
+    image: ${SIDECAR_IMAGE:-vrf-sidecar:dev}
+    entrypoint: ["sh", "-lc"]
+    command:
+      - exec sh /scripts/drand/start.sh
+    environment:
+      DRAND_ROLE: joiner
+      DRAND_BINARY: /bin/drand
+      DRAND_ID: ${DRAND_ID:-default}
+      DRAND_SCHEME: ${DRAND_SCHEME:-pedersen-bls-chained}
+      DRAND_DATA_DIR: ${DRAND_DATA_DIR_NODE2:-/var/lib/vrf/drand/node2}
+      DRAND_PRIVATE_ADDR: ${DRAND_PRIVATE_ADDR_NODE2:-0.0.0.0:4444}
+      DRAND_PUBLIC_ADDR: ${DRAND_PUBLIC_ADDR_NODE2:-0.0.0.0:8081}
+      DRAND_CONTROL_PORT: ${DRAND_CONTROL_PORT_NODE2:-8881}
+      DRAND_KEYPAIR_ADDR: ${DRAND_KEYPAIR_ADDR_NODE2:-drand2:4444}
+    volumes:
+      - ./scripts:/scripts:ro
+      - drand-data:/var/lib/vrf/drand
+    restart: unless-stopped
+
   chain:
+    depends_on:
+      - drand1
+      - drand2
     image: ${CHAIN_IMAGE:-vrf-chain:dev}
     build:
       context: .
@@ -27,16 +77,18 @@ services:
       KEYNAME: ${KEYNAME:-validator}
       KEYRING_BACKEND: ${KEYRING_BACKEND:-test}
       CHAIN_DIR: ${CHAIN_DIR:-/.vrf/.chaind}
+      VRF_RUNTIME_DIR: ${VRF_RUNTIME_DIR:-/var/run/vrf}
+      VRF_DRAND_INFO_FILE: ${VRF_DRAND_INFO_FILE:-/var/run/vrf/drand-info.json}
       RESET_CHAIN: ${RESET_CHAIN:-false}
       TIMEOUT_COMMIT: ${TIMEOUT_COMMIT:-2s}
       BLOCK_GAS_LIMIT: ${BLOCK_GAS_LIMIT:-10000000}
       MIN_GAS_PRICES: ${MIN_GAS_PRICES:-0uchain}
       TRACE: ${TRACE:-false}
     ports:
-      - "26656:26656"
-      - "26657:26657"
-      - "1317:1317"
-      - "9090:9090"
+      - "${CHAIN_P2P_PORT:-26656}:26656"
+      - "${CHAIN_RPC_PORT:-26657}:26657"
+      - "${CHAIN_API_PORT:-1317}:1317"
+      - "${CHAIN_GRPC_PORT:-9090}:9090"
     volumes:
       - ./scripts:/scripts:ro
       - chain-data:/.vrf/.chaind
@@ -44,7 +96,9 @@ services:
     restart: unless-stopped
 
   sidecar:
-    profiles: ["vrf"]
+    depends_on:
+      - drand1
+      - drand2
     image: ${SIDECAR_IMAGE:-vrf-sidecar:dev}
     build:
       context: .
@@ -55,6 +109,7 @@ services:
         VERSION: ${VERSION:-dev}
         COMMIT: ${COMMIT:-}
         BUILD_TAGS: ${DOCKER_BUILD_TAGS:-muslc}
+        DRAND_CONN_INSECURE: ${DRAND_CONN_INSECURE:-true}
         LEDGER_ENABLED: ${DOCKER_LEDGER_ENABLED:-false}
         LINK_STATICALLY: ${DOCKER_LINK_STATICALLY:-true}
         SKIP_TIDY: ${DOCKER_SKIP_TIDY:-true}
@@ -62,6 +117,9 @@ services:
     command:
       - exec sh /scripts/sidecar/start.sh
     environment:
+      VRF_RUNTIME_DIR: ${VRF_RUNTIME_DIR:-/var/run/vrf}
+      VRF_DRAND_INFO_FILE: ${VRF_DRAND_INFO_FILE:-/var/run/vrf/drand-info.json}
+
       SIDECAR_LISTEN_ADDR: ${SIDECAR_LISTEN_ADDR:-unix:///var/run/vrf/sidecar.sock}
       VRF_ALLOW_PUBLIC_BIND: ${VRF_ALLOW_PUBLIC_BIND:-false}
 
@@ -72,13 +130,16 @@ services:
       # Used by scripts/sidecar/start.sh auto-wiring (loads x/vrf params from genesis).
       CHAIN_DIR: ${CHAIN_DIR:-/.vrf/.chaind}
 
-      DRAND_SUPERVISE: ${DRAND_SUPERVISE:-true}
-      DRAND_HTTP: ${DRAND_HTTP:-}
+      DRAND_SUPERVISE: ${DRAND_SUPERVISE:-false}
+      DRAND_ALLOW_NON_LOOPBACK_HTTP: ${DRAND_ALLOW_NON_LOOPBACK_HTTP:-true}
+      DRAND_BOOTSTRAP: ${DRAND_BOOTSTRAP:-false}
+      DRAND_HTTP: ${DRAND_HTTP:-http://drand1:8081}
       DRAND_BINARY: ${DRAND_BINARY:-/bin/drand}
       DRAND_DATA_DIR: ${DRAND_DATA_DIR:-/var/lib/vrf/drand}
       DRAND_PUBLIC_ADDR: ${DRAND_PUBLIC_ADDR:-127.0.0.1:8081}
       DRAND_PRIVATE_ADDR: ${DRAND_PRIVATE_ADDR:-0.0.0.0:4444}
       DRAND_CONTROL_ADDR: ${DRAND_CONTROL_ADDR:-127.0.0.1:8881}
+      DRAND_ID: ${DRAND_ID:-default}
 
       DRAND_CHAIN_HASH: ${DRAND_CHAIN_HASH:-}
       DRAND_PUBLIC_KEY: ${DRAND_PUBLIC_KEY:-}
@@ -87,7 +148,6 @@ services:
     volumes:
       - ./scripts:/scripts:ro
       - chain-data:/.vrf/.chaind:ro
-      - drand-data:/var/lib/vrf/drand
       - vrf-socket:/var/run/vrf
     restart: unless-stopped
 

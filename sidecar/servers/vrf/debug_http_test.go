@@ -79,7 +79,7 @@ func TestStartDebugHTTP_UnixSocketServesInfo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GET /vrf/v1/info failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -119,6 +119,6 @@ func TestStartDebugHTTP_UnixSocketServesInfo(t *testing.T) {
 			t.Fatalf("StartDebugHTTP returned error: %v", err)
 		}
 	case <-time.After(5 * time.Second):
-		t.Fatalf("timeout waiting for StartDebugHTTP to exit")
+		t.Fatal("timeout waiting for StartDebugHTTP to exit")
 	}
 }

@@ -12,6 +12,12 @@ import (
 	"github.com/vexxvakan/vrf/x/vrf/types"
 )
 
+var (
+	errInvalidAuthority        = errors.New("vrf: invalid authority")
+	errSchedulerNotInCommittee = errors.New("vrf: scheduler is not in committee")
+	errReshareEpochTooLow      = errors.New("vrf: reshare_epoch must be > current")
+)
+
 type msgServer struct {
 	k Keeper
 }
@@ -21,7 +27,7 @@ func NewMsgServerImpl(k Keeper) types.MsgServer {
 	return &msgServer{k: k}
 }
 
-func (s msgServer) VrfEmergencyDisable(
+func (msgServer) VrfEmergencyDisable(
 	goCtx context.Context,
 	msg *types.MsgVrfEmergencyDisable,
 ) (*types.MsgVrfEmergencyDisableResponse, error) {
@@ -53,10 +59,10 @@ func (s msgServer) UpdateParams(
 	}
 
 	if msg.Authority != s.k.GetAuthority() {
-		return nil, fmt.Errorf("vrf: invalid authority; expected %s, got %s", s.k.GetAuthority(), msg.Authority)
+		return nil, fmt.Errorf("%w; expected %s, got %s", errInvalidAuthority, s.k.GetAuthority(), msg.Authority)
 	}
 
-	if err := s.k.SetParams(ctx.Context(), msg.Params); err != nil {
+	if err := s.k.SetParams(goCtx, msg.Params); err != nil {
 		return nil, err
 	}
 
@@ -81,10 +87,10 @@ func (s msgServer) AddVrfCommitteeMember(
 	}
 
 	if msg.Authority != s.k.GetAuthority() {
-		return nil, fmt.Errorf("vrf: invalid authority; expected %s, got %s", s.k.GetAuthority(), msg.Authority)
+		return nil, fmt.Errorf("%w; expected %s, got %s", errInvalidAuthority, s.k.GetAuthority(), msg.Authority)
 	}
 
-	if err := s.k.SetCommitteeMember(ctx.Context(), msg.Address, msg.Label); err != nil {
+	if err := s.k.SetCommitteeMember(goCtx, msg.Address, msg.Label); err != nil {
 		return nil, err
 	}
 
@@ -111,10 +117,10 @@ func (s msgServer) RemoveVrfCommitteeMember(
 	}
 
 	if msg.Authority != s.k.GetAuthority() {
-		return nil, fmt.Errorf("vrf: invalid authority; expected %s, got %s", s.k.GetAuthority(), msg.Authority)
+		return nil, fmt.Errorf("%w; expected %s, got %s", errInvalidAuthority, s.k.GetAuthority(), msg.Authority)
 	}
 
-	if err := s.k.RemoveCommitteeMember(ctx.Context(), msg.Address); err != nil {
+	if err := s.k.RemoveCommitteeMember(goCtx, msg.Address); err != nil {
 		return nil, err
 	}
 
@@ -146,7 +152,7 @@ func (s msgServer) RegisterVrfIdentity(
 
 	validatorAddr := sdk.ValAddress(operatorAcc).String()
 
-	params, err := s.k.GetParams(ctx.Context())
+	params, err := s.k.GetParams(goCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +166,7 @@ func (s msgServer) RegisterVrfIdentity(
 	}
 
 	// If the identity already exists, preserve the original signal time and signal epoch.
-	existing, err := s.k.identities.Get(ctx.Context(), validatorAddr)
+	existing, err := s.k.identities.Get(goCtx, validatorAddr)
 	switch {
 	case err == nil:
 		identity.SignalUnixSec = existing.SignalUnixSec
@@ -171,7 +177,7 @@ func (s msgServer) RegisterVrfIdentity(
 		return nil, err
 	}
 
-	if err := s.k.SetVrfIdentity(ctx.Context(), identity); err != nil {
+	if err := s.k.SetVrfIdentity(goCtx, identity); err != nil {
 		return nil, err
 	}
 
@@ -196,26 +202,26 @@ func (s msgServer) ScheduleVrfReshare(
 		return nil, err
 	}
 
-	allowed, err := s.k.IsCommitteeMember(ctx.Context(), msg.Scheduler)
+	allowed, err := s.k.IsCommitteeMember(goCtx, msg.Scheduler)
 	if err != nil {
 		return nil, err
 	}
 	if !allowed {
-		return nil, fmt.Errorf("vrf: scheduler %s is not in committee", msg.Scheduler)
+		return nil, fmt.Errorf("%w: %s", errSchedulerNotInCommittee, msg.Scheduler)
 	}
 
-	params, err := s.k.GetParams(ctx.Context())
+	params, err := s.k.GetParams(goCtx)
 	if err != nil {
 		return nil, err
 	}
 
 	if msg.ReshareEpoch <= params.ReshareEpoch {
-		return nil, fmt.Errorf("vrf: reshare_epoch must be > current (%d)", params.ReshareEpoch)
+		return nil, fmt.Errorf("%w: current=%d", errReshareEpochTooLow, params.ReshareEpoch)
 	}
 
 	oldEpoch := params.ReshareEpoch
 	params.ReshareEpoch = msg.ReshareEpoch
-	if err := s.k.SetParams(ctx.Context(), params); err != nil {
+	if err := s.k.SetParams(goCtx, params); err != nil {
 		return nil, err
 	}
 

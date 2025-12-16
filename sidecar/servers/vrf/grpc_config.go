@@ -1,7 +1,6 @@
 package vrf
 
 import (
-	"fmt"
 	"time"
 
 	"google.golang.org/grpc"
@@ -38,28 +37,28 @@ type GRPCServerConfig struct {
 
 func (c GRPCServerConfig) Validate() error {
 	if c.MaxConnectionIdle < 0 {
-		return fmt.Errorf("grpc max connection idle must be >= 0")
+		return errGRPCMaxConnectionIdleNegative
 	}
 	if c.MaxConnectionAge < 0 {
-		return fmt.Errorf("grpc max connection age must be >= 0")
+		return errGRPCMaxConnectionAgeNegative
 	}
 	if c.MaxConnectionAgeGrace < 0 {
-		return fmt.Errorf("grpc max connection age grace must be >= 0")
+		return errGRPCMaxConnectionAgeGraceNegative
 	}
 	if c.KeepaliveTime < 0 {
-		return fmt.Errorf("grpc keepalive time must be >= 0")
+		return errGRPCKeepaliveTimeNegative
 	}
 	if c.KeepaliveTimeout < 0 {
-		return fmt.Errorf("grpc keepalive timeout must be >= 0")
+		return errGRPCKeepaliveTimeoutNegative
 	}
 	if c.KeepaliveMinTime < 0 {
-		return fmt.Errorf("grpc keepalive min time must be >= 0")
+		return errGRPCKeepaliveMinTimeNegative
 	}
 	if c.MaxRecvMsgSize < 0 {
-		return fmt.Errorf("grpc max recv msg size must be >= 0")
+		return errGRPCMaxRecvMsgSizeNegative
 	}
 	if c.MaxSendMsgSize < 0 {
-		return fmt.Errorf("grpc max send msg size must be >= 0")
+		return errGRPCMaxSendMsgSizeNegative
 	}
 	return nil
 }

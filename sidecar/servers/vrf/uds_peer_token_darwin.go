@@ -26,5 +26,5 @@ func udsPeerTokenFromFD(fd int) (string, error) {
 		return "", credErr
 	}
 
-	return "", fmt.Errorf("unable to determine peer credentials")
+	return "", errUnableToDeterminePeerCredentials
 }

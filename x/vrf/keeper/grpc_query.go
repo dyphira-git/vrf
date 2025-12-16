@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -10,6 +11,12 @@ import (
 )
 
 const maxRandomWords = 256
+
+var (
+	errNilQueryRandomWordsRequest     = errors.New("vrf: nil QueryRandomWordsRequest")
+	errRandomWordsCountMustBePositive = errors.New("vrf: count must be > 0")
+	errRandomWordsCountExceedsMax     = errors.New("vrf: count exceeds maximum")
+)
 
 type queryServer struct {
 	k Keeper
@@ -24,9 +31,7 @@ func (q queryServer) Params(
 	goCtx context.Context,
 	_ *types.QueryParamsRequest,
 ) (*types.QueryParamsResponse, error) {
-	ctx := sdk.UnwrapSDKContext(goCtx)
-
-	params, err := q.k.GetParams(ctx.Context())
+	params, err := q.k.GetParams(goCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -55,15 +60,15 @@ func (q queryServer) RandomWords(
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
 	if req == nil {
-		return nil, fmt.Errorf("vrf: nil QueryRandomWordsRequest")
+		return nil, errNilQueryRandomWordsRequest
 	}
 
 	if req.Count == 0 {
-		return nil, fmt.Errorf("vrf: count must be > 0")
+		return nil, errRandomWordsCountMustBePositive
 	}
 
 	if req.Count > maxRandomWords {
-		return nil, fmt.Errorf("vrf: count %d exceeds maximum %d", req.Count, maxRandomWords)
+		return nil, fmt.Errorf("%w: got %d, max %d", errRandomWordsCountExceedsMax, req.Count, maxRandomWords)
 	}
 
 	beacon, words, err := q.k.ExpandRandomness(ctx, req.Count, req.UserSeed)

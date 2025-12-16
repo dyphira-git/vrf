@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -17,6 +16,7 @@ import (
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
 
 	cometrpc "github.com/cometbft/cometbft/rpc/client/http"
@@ -26,6 +26,22 @@ import (
 	"github.com/vexxvakan/vrf/sidecar"
 	sidecarmetrics "github.com/vexxvakan/vrf/sidecar/servers/prometheus/metrics"
 	servertypes "github.com/vexxvakan/vrf/sidecar/servers/vrf/types"
+)
+
+var (
+	errChainRPCAddrRequiredForWS      = errors.New("chain RPC address is required for websocket event subscription")
+	errChainReturnedNilVrfParams      = errors.New("chain returned nil VrfParams")
+	errNilConfig                      = errors.New("nil config")
+	errNilVrfParams                   = errors.New("nil vrf params")
+	errOnChainVrfParamsIncomplete     = errors.New("on-chain VrfParams is incomplete: chain_hash, public_key, period_seconds, genesis_unix_sec are required")
+	errChainHashMismatch              = errors.New("sidecar config mismatch: drand chain hash does not match on-chain params")
+	errPublicKeyMismatch              = errors.New("sidecar config mismatch: drand public key does not match on-chain params")
+	errPeriodMismatch                 = errors.New("sidecar config mismatch: drand period does not match on-chain params")
+	errGenesisMismatch                = errors.New("sidecar config mismatch: drand genesis does not match on-chain params")
+	errDrandDataDirRequiredForReshare = errors.New("drand data dir is required for reshare listener")
+	errChainGRPCAddrRequired          = errors.New("chain gRPC address is required")
+	errNilSidecarConfig               = errors.New("nil sidecar config")
+	errNilDynamicService              = errors.New("nil dynamic service")
 )
 
 type stringSliceFlag []string
@@ -38,16 +54,15 @@ func (s *stringSliceFlag) Set(v string) error {
 }
 
 type drandController struct {
-	parentCtx context.Context
-	cfg       sidecar.DrandProcessConfig
-	logger    *zap.Logger
-	metrics   sidecarmetrics.Metrics
+	cfg     sidecar.DrandProcessConfig
+	logger  *zap.Logger
+	metrics sidecarmetrics.Metrics
 
 	mu   sync.Mutex
 	proc *sidecar.DrandProcess
 }
 
-func newDrandController(parentCtx context.Context, cfg sidecar.DrandProcessConfig, logger *zap.Logger, metrics sidecarmetrics.Metrics) *drandController {
+func newDrandController(cfg sidecar.DrandProcessConfig, logger *zap.Logger, metrics sidecarmetrics.Metrics) *drandController {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
@@ -56,14 +71,13 @@ func newDrandController(parentCtx context.Context, cfg sidecar.DrandProcessConfi
 	}
 
 	return &drandController{
-		parentCtx: parentCtx,
-		cfg:       cfg,
-		logger:    logger,
-		metrics:   metrics,
+		cfg:     cfg,
+		logger:  logger,
+		metrics: metrics,
 	}
 }
 
-func (c *drandController) Start() error {
+func (c *drandController) Start(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -71,7 +85,7 @@ func (c *drandController) Start() error {
 		return nil
 	}
 
-	proc, err := sidecar.StartDrandProcess(c.parentCtx, c.cfg, c.logger, c.metrics)
+	proc, err := sidecar.StartDrandProcess(ctx, c.cfg, c.logger, c.metrics)
 	if err != nil {
 		return err
 	}
@@ -123,7 +137,7 @@ func startReshareEventSubscriber(
 	cometRPCAddr string,
 ) (*reshareEventCache, func(), error) {
 	if strings.TrimSpace(cometRPCAddr) == "" {
-		return nil, nil, fmt.Errorf("chain RPC address is required for websocket event subscription")
+		return nil, nil, errChainRPCAddrRequiredForWS
 	}
 
 	client, err := cometrpc.New(cometRPCAddr, "/websocket")
@@ -139,7 +153,7 @@ func startReshareEventSubscriber(
 
 	sub, err := client.Subscribe(ctx, "sidecar", "tm.event='Tx'", 256)
 	if err != nil {
-		client.Stop()
+		_ = client.Stop()
 		return nil, nil, err
 	}
 
@@ -188,7 +202,7 @@ func startReshareEventSubscriber(
 
 	closeFn := func() {
 		_ = client.UnsubscribeAll(context.Background(), "sidecar")
-		client.Stop()
+		_ = client.Stop()
 	}
 
 	return cache, closeFn, nil
@@ -200,35 +214,35 @@ func queryVrfParams(ctx context.Context, qc vrfv1.QueryClient) (*vrfv1.VrfParams
 		return nil, err
 	}
 	if resp == nil || resp.Params == nil {
-		return nil, fmt.Errorf("chain returned nil VrfParams")
+		return nil, errChainReturnedNilVrfParams
 	}
 	return resp.Params, nil
 }
 
 func mergeChainParamsIntoConfig(cfg *sidecar.Config, params *vrfv1.VrfParams) error {
 	if cfg == nil {
-		return fmt.Errorf("nil config")
+		return errNilConfig
 	}
 
 	if params == nil {
-		return fmt.Errorf("nil vrf params")
+		return errNilVrfParams
 	}
 
 	if len(params.ChainHash) == 0 || len(params.PublicKey) == 0 || params.PeriodSeconds == 0 || params.GenesisUnixSec == 0 {
-		return fmt.Errorf("on-chain VrfParams is incomplete: chain_hash, public_key, period_seconds, genesis_unix_sec are required")
+		return errOnChainVrfParamsIncomplete
 	}
 
 	if len(cfg.ChainHash) > 0 && !bytes.Equal(cfg.ChainHash, params.ChainHash) {
-		return fmt.Errorf("sidecar config mismatch: drand chain hash does not match on-chain params")
+		return errChainHashMismatch
 	}
 	if len(cfg.PublicKey) > 0 && !bytes.Equal(cfg.PublicKey, params.PublicKey) {
-		return fmt.Errorf("sidecar config mismatch: drand public key does not match on-chain params")
+		return errPublicKeyMismatch
 	}
 	if cfg.PeriodSeconds != 0 && cfg.PeriodSeconds != params.PeriodSeconds {
-		return fmt.Errorf("sidecar config mismatch: drand period does not match on-chain params")
+		return errPeriodMismatch
 	}
 	if cfg.GenesisUnixSec != 0 && cfg.GenesisUnixSec != params.GenesisUnixSec {
-		return fmt.Errorf("sidecar config mismatch: drand genesis does not match on-chain params")
+		return errGenesisMismatch
 	}
 
 	cfg.ChainHash = append([]byte(nil), params.ChainHash...)
@@ -249,14 +263,22 @@ func infoFromConfig(cfg sidecar.Config) *servertypes.QueryInfoResponse {
 }
 
 func dialChainGRPC(ctx context.Context, addr string) (*grpc.ClientConn, vrfv1.QueryClient, error) {
-	conn, err := grpc.DialContext(
-		ctx,
-		addr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
-	)
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, nil, err
+	}
+
+	conn.Connect()
+	for {
+		state := conn.GetState()
+		if state == connectivity.Ready {
+			break
+		}
+
+		if !conn.WaitForStateChange(ctx, state) {
+			_ = conn.Close()
+			return nil, nil, ctx.Err()
+		}
 	}
 
 	return conn, vrfv1.NewQueryClient(conn), nil
@@ -279,7 +301,7 @@ func newReshareRunner(enabled bool, cfg sidecar.Config, extraArgs []string, time
 	}
 
 	if strings.TrimSpace(cfg.DrandDataDir) == "" {
-		return nil, fmt.Errorf("drand data dir is required for reshare listener")
+		return nil, errDrandDataDirRequiredForReshare
 	}
 
 	bin := strings.TrimSpace(cfg.BinaryPath)
@@ -337,7 +359,7 @@ func (r *reshareRunner) recordEpoch(epoch uint64) error {
 	}
 
 	tmp := r.stateFile + ".tmp"
-	if err := os.WriteFile(tmp, []byte(strconv.FormatUint(epoch, 10)), 0o644); err != nil {
+	if err := os.WriteFile(tmp, []byte(strconv.FormatUint(epoch, 10)), 0o600); err != nil {
 		return err
 	}
 	return os.Rename(tmp, r.stateFile)
@@ -348,9 +370,7 @@ func (r *reshareRunner) run(ctx context.Context, logger *zap.Logger) error {
 		return nil
 	}
 
-	cmdCtx := ctx
-	var cancel context.CancelFunc
-	cmdCtx, cancel = context.WithTimeout(ctx, r.timeout)
+	cmdCtx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 
 	args := []string{"share", "--folder", r.dataDir, "--reshare"}
@@ -378,7 +398,7 @@ func (r *reshareRunner) run(ctx context.Context, logger *zap.Logger) error {
 }
 
 func pipeToLogger(r io.ReadCloser, logger *zap.Logger, stream string) {
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
@@ -412,11 +432,11 @@ func startChainWatcher(
 	drandCtl *drandController,
 ) (initialEnabled bool, initialReshareEpoch uint64, cleanup func(), err error) {
 	if strings.TrimSpace(chainGRPCAddr) == "" {
-		return false, 0, func() {}, fmt.Errorf("chain gRPC address is required")
+		return false, 0, func() {}, errChainGRPCAddrRequired
 	}
 
 	if cfg == nil {
-		return false, 0, func() {}, fmt.Errorf("nil sidecar config")
+		return false, 0, func() {}, errNilSidecarConfig
 	}
 
 	if logger == nil {
@@ -426,7 +446,7 @@ func startChainWatcher(
 		metrics = sidecarmetrics.NewNop()
 	}
 	if dyn == nil {
-		return false, 0, func() {}, fmt.Errorf("nil dynamic service")
+		return false, 0, func() {}, errNilDynamicService
 	}
 
 	conn, qc, err := dialChainGRPC(ctx, chainGRPCAddr)
@@ -532,14 +552,14 @@ func startChainWatcher(
 
 		if enabled {
 			if drandCtl != nil {
-				if err := drandCtl.Start(); err != nil {
+				if err := drandCtl.Start(ctx); err != nil {
 					logger.Error("failed to restart drand subprocess after reshare", zap.Error(err))
 					cancel()
 					return false
 				}
 			}
 
-			svc, err := newDrandServiceWithRetry(ctx, cfgSnapshot, logger, metrics, 30*time.Second)
+			svc, err := newDrandServiceWithRetry(ctx, cfgSnapshot, logger, metrics)
 			if err != nil {
 				logger.Error("failed to recreate drand service after reshare", zap.Error(err))
 				cancel()
@@ -583,14 +603,14 @@ func startChainWatcher(
 		dyn.SetService(nil)
 	} else {
 		if drandCtl != nil {
-			if err := drandCtl.Start(); err != nil {
+			if err := drandCtl.Start(ctx); err != nil {
 				cleanup()
 				return false, 0, func() {}, err
 			}
 		}
 
 		if !reshareExecutedAtStartup {
-			svc, err := newDrandServiceWithRetry(ctx, cfgSnapshot, logger, metrics, 30*time.Second)
+			svc, err := newDrandServiceWithRetry(ctx, cfgSnapshot, logger, metrics)
 			if err != nil {
 				cleanup()
 				return false, 0, func() {}, err
@@ -637,12 +657,12 @@ func startChainWatcher(
 					dyn.SetService(nil)
 				} else {
 					if drandCtl != nil {
-						if err := drandCtl.Start(); err != nil {
+						if err := drandCtl.Start(ctx); err != nil {
 							logger.Error("failed to start drand subprocess after enable", zap.Error(err))
 						}
 					}
 
-					svc, err := newDrandServiceWithRetry(ctx, cfgSnapshot, logger, metrics, 30*time.Second)
+					svc, err := newDrandServiceWithRetry(ctx, cfgSnapshot, logger, metrics)
 					if err != nil {
 						logger.Error("failed to create drand service after enable", zap.Error(err))
 					} else {
@@ -669,23 +689,3 @@ func startChainWatcher(
 
 	return enabled, reshareEpoch, cleanup, nil
 }
-
-func maybeFetchLatestHeight(ctx context.Context, cometRPCAddr string) (int64, error) {
-	if strings.TrimSpace(cometRPCAddr) == "" {
-		return 0, fmt.Errorf("empty comet rpc addr")
-	}
-	client, err := cometrpc.New(cometRPCAddr, "/websocket")
-	if err != nil {
-		return 0, err
-	}
-	status, err := client.Status(ctx)
-	if err != nil {
-		return 0, err
-	}
-	if status == nil {
-		return 0, fmt.Errorf("nil status response")
-	}
-	return status.SyncInfo.LatestBlockHeight, nil
-}
-
-var _ = comettypes.EventDataTx{}

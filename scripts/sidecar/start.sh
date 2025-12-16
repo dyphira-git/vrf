@@ -30,9 +30,11 @@ METRICS_CHAIN_ID=${METRICS_CHAIN_ID:-}
 
 DRAND_SUPERVISE=${DRAND_SUPERVISE:-true}
 DRAND_HTTP=${DRAND_HTTP:-}
+DRAND_ALLOW_NON_LOOPBACK_HTTP=${DRAND_ALLOW_NON_LOOPBACK_HTTP:-false}
 DRAND_PUBLIC_ADDR=${DRAND_PUBLIC_ADDR:-127.0.0.1:8081}
 DRAND_PRIVATE_ADDR=${DRAND_PRIVATE_ADDR:-0.0.0.0:4444}
 DRAND_CONTROL_ADDR=${DRAND_CONTROL_ADDR:-127.0.0.1:8881}
+DRAND_ID=${DRAND_ID:-default}
 
 DRAND_BINARY=${DRAND_BINARY:-drand}
 DRAND_VERSION_CHECK=${DRAND_VERSION_CHECK:-strict}
@@ -41,6 +43,10 @@ DRAND_CHAIN_HASH=${DRAND_CHAIN_HASH:-}
 DRAND_PUBLIC_KEY=${DRAND_PUBLIC_KEY:-}
 DRAND_PERIOD_SECONDS=${DRAND_PERIOD_SECONDS:-}
 DRAND_GENESIS_UNIX=${DRAND_GENESIS_UNIX:-}
+
+VRF_RUNTIME_DIR=${VRF_RUNTIME_DIR:-/var/run/vrf}
+VRF_DRAND_INFO_FILE=${VRF_DRAND_INFO_FILE:-$VRF_RUNTIME_DIR/drand-info.json}
+DRAND_BOOTSTRAP=${DRAND_BOOTSTRAP:-true}
 
 # Optional chain watcher (PLAN §1.8):
 # - When CHAIN_GRPC_ADDR is set, the sidecar fetches x/vrf params at startup and
@@ -77,6 +83,49 @@ if [ -z "$PYTHON_BIN" ]; then
         PYTHON_BIN=python
     fi
 fi
+
+write_drand_info_file() {
+    if [ -z "$PYTHON_BIN" ]; then
+        return 1
+    fi
+    if [ -z "$DRAND_CHAIN_HASH" ] || [ -z "$DRAND_PUBLIC_KEY" ] || [ -z "$DRAND_PERIOD_SECONDS" ] || [ -z "$DRAND_GENESIS_UNIX" ]; then
+        return 1
+    fi
+
+    "$PYTHON_BIN" - "$VRF_DRAND_INFO_FILE" <<'PY'
+import base64
+import json
+import os
+import sys
+
+out_path = sys.argv[1]
+
+chain_hash_hex = (os.environ.get("DRAND_CHAIN_HASH") or "").strip().removeprefix("0x").lower()
+public_key_b64 = (os.environ.get("DRAND_PUBLIC_KEY") or "").strip()
+period_seconds = int((os.environ.get("DRAND_PERIOD_SECONDS") or "0").strip() or "0")
+genesis_unix = int((os.environ.get("DRAND_GENESIS_UNIX") or "0").strip() or "0")
+
+if not chain_hash_hex or not public_key_b64 or period_seconds <= 0 or genesis_unix <= 0:
+    raise SystemExit("DRAND_* env vars are incomplete")
+
+chain_hash_bytes = bytes.fromhex(chain_hash_hex)
+
+out = {
+    "chain_hash_hex": chain_hash_hex,
+    "params": {
+        "chain_hash": base64.b64encode(chain_hash_bytes).decode("ascii"),
+        "public_key": public_key_b64,
+        "period_seconds": period_seconds,
+        "genesis_unix_sec": genesis_unix,
+    },
+}
+
+os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+with open(out_path, "w", encoding="utf-8") as f:
+    json.dump(out, f, indent=2, sort_keys=True)
+    f.write("\\n")
+PY
+}
 
 load_drand_params_from_json() {
     if [ -z "$PYTHON_BIN" ]; then
@@ -132,6 +181,38 @@ print(public_key_b64)
 print(period_seconds)
 print(genesis_unix)
 PY
+}
+
+try_load_from_drand_info_file() {
+    if [ ! -f "$VRF_DRAND_INFO_FILE" ]; then
+        return 1
+    fi
+
+    INFO_CHAIN_HASH=
+    INFO_PUBLIC_KEY=
+    INFO_PERIOD_SECONDS=
+    INFO_GENESIS_UNIX=
+    {
+        read -r INFO_CHAIN_HASH || true
+        read -r INFO_PUBLIC_KEY || true
+        read -r INFO_PERIOD_SECONDS || true
+        read -r INFO_GENESIS_UNIX || true
+    } <<EOF
+$(load_drand_params_from_json "$VRF_DRAND_INFO_FILE" 2>/dev/null || true)
+EOF
+
+    if [ -z "$DRAND_CHAIN_HASH" ] && [ -n "$INFO_CHAIN_HASH" ]; then
+        DRAND_CHAIN_HASH="$INFO_CHAIN_HASH"
+    fi
+    if [ -z "$DRAND_PUBLIC_KEY" ] && [ -n "$INFO_PUBLIC_KEY" ]; then
+        DRAND_PUBLIC_KEY="$INFO_PUBLIC_KEY"
+    fi
+    if [ -z "$DRAND_PERIOD_SECONDS" ] && [ -n "$INFO_PERIOD_SECONDS" ] && [ "$INFO_PERIOD_SECONDS" -gt 0 ] 2>/dev/null; then
+        DRAND_PERIOD_SECONDS="$INFO_PERIOD_SECONDS"
+    fi
+    if [ -z "$DRAND_GENESIS_UNIX" ] && [ -n "$INFO_GENESIS_UNIX" ] && [ "$INFO_GENESIS_UNIX" -gt 0 ] 2>/dev/null; then
+        DRAND_GENESIS_UNIX="$INFO_GENESIS_UNIX"
+    fi
 }
 
 try_load_from_genesis() {
@@ -227,7 +308,14 @@ if [ -z "$DRAND_GENESIS_UNIX" ]; then
 fi
 
 if [ -n "$MISSING" ]; then
-    # Best-effort auto-wiring: prefer genesis (fast/local), then chain query.
+    # Best-effort auto-wiring: prefer cached drand info, then bootstrap, then genesis.
+    try_load_from_drand_info_file || true
+
+    if [ "$DRAND_BOOTSTRAP" = "true" ]; then
+        sh "$SCRIPT_DIR/bootstrap-drand.sh" >/dev/null 2>&1 || true
+        try_load_from_drand_info_file || true
+    fi
+
     try_load_from_genesis || true
 
     MISSING=""
@@ -263,16 +351,52 @@ if [ -z "$DRAND_GENESIS_UNIX" ]; then
     MISSING="$MISSING DRAND_GENESIS_UNIX"
 fi
 if [ -n "$MISSING" ]; then
-    echo "Missing required environment variables:$MISSING" >&2
-    echo "Tried to load VRF params from:" >&2
-    echo "  - GENESIS_FILE=$GENESIS_FILE" >&2
-    echo "  - $CHAIN_BINARY query vrf params --home $CHAIN_DIR" >&2
-    if [ -z "$PYTHON_BIN" ]; then
-        echo "  - Note: python3/python not found; auto-wiring from genesis/chain is disabled." >&2
+    if [ ! -f "$VRF_DRAND_INFO_FILE" ]; then
+        echo "Waiting for VRF_DRAND_INFO_FILE=$VRF_DRAND_INFO_FILE ..." >&2
+        i=0
+        while [ "$i" -lt 240 ] && [ ! -f "$VRF_DRAND_INFO_FILE" ]; do
+            i=$((i + 1))
+            sleep 0.5
+        done
     fi
-    echo "Provide DRAND_* env vars explicitly, or ensure x/vrf params are set (chain_hash/public_key/genesis_unix_sec/period_seconds)." >&2
-    exit 1
+
+    try_load_from_drand_info_file || true
+
+    MISSING=""
+    if [ -z "$DRAND_CHAIN_HASH" ]; then
+        MISSING="$MISSING DRAND_CHAIN_HASH"
+    fi
+    if [ -z "$DRAND_PUBLIC_KEY" ]; then
+        MISSING="$MISSING DRAND_PUBLIC_KEY"
+    fi
+    if [ -z "$DRAND_PERIOD_SECONDS" ]; then
+        MISSING="$MISSING DRAND_PERIOD_SECONDS"
+    fi
+    if [ -z "$DRAND_GENESIS_UNIX" ]; then
+        MISSING="$MISSING DRAND_GENESIS_UNIX"
+    fi
+
+    if [ -n "$MISSING" ]; then
+        echo "Missing required environment variables:$MISSING" >&2
+        if [ "$DRAND_BOOTSTRAP" = "true" ]; then
+            echo "drand bootstrap was attempted (DRAND_BOOTSTRAP=true)." >&2
+            echo "  - VRF_DRAND_INFO_FILE=$VRF_DRAND_INFO_FILE" >&2
+        fi
+        echo "Tried to load VRF params from:" >&2
+        echo "  - VRF_DRAND_INFO_FILE=$VRF_DRAND_INFO_FILE" >&2
+        echo "  - GENESIS_FILE=$GENESIS_FILE" >&2
+        echo "  - $CHAIN_BINARY query vrf params --home $CHAIN_DIR" >&2
+        if [ -z "$PYTHON_BIN" ]; then
+            echo "  - Note: python3/python not found; auto-wiring from genesis/chain is disabled." >&2
+        fi
+        echo "Provide DRAND_* env vars explicitly, or ensure x/vrf params are set (chain_hash/public_key/genesis_unix_sec/period_seconds)." >&2
+        exit 1
+    fi
 fi
+fi
+
+if [ ! -f "$VRF_DRAND_INFO_FILE" ]; then
+    write_drand_info_file >/dev/null 2>&1 || true
 fi
 
 set -- \
@@ -281,6 +405,7 @@ set -- \
     --metrics-enabled="$METRICS_ENABLED" \
     --metrics-addr "$METRICS_ADDR" \
     --drand-supervise="$DRAND_SUPERVISE" \
+    --drand-allow-non-loopback-http="$DRAND_ALLOW_NON_LOOPBACK_HTTP" \
     --drand-binary "$DRAND_BINARY" \
     --drand-data-dir "$DRAND_DATA_DIR" \
     --drand-public-addr "$DRAND_PUBLIC_ADDR" \

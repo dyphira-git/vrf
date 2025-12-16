@@ -2,6 +2,7 @@ package sidecar
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -17,6 +18,12 @@ import (
 )
 
 var _ Client = (*GRPCClient)(nil)
+
+var (
+	errNilLogger          = errors.New("logger cannot be nil")
+	errTimeoutNotPositive = errors.New("timeout must be positive")
+	errClientNotStarted   = errors.New("vrf sidecar client not started")
+)
 
 type GRPCClient struct {
 	logger log.Logger
@@ -34,11 +41,11 @@ func NewClient(
 	timeout time.Duration,
 ) (*GRPCClient, error) {
 	if logger == nil {
-		return nil, fmt.Errorf("logger cannot be nil")
+		return nil, errNilLogger
 	}
 
 	if timeout <= 0 {
-		return nil, fmt.Errorf("timeout must be positive")
+		return nil, errTimeoutNotPositive
 	}
 
 	return &GRPCClient{
@@ -48,7 +55,7 @@ func NewClient(
 	}, nil
 }
 
-func (c *GRPCClient) Start(ctx context.Context) error {
+func (c *GRPCClient) Start(_ context.Context) error {
 	c.logger.Info("starting vrf sidecar client", "addr", c.addr)
 
 	opts := []grpc.DialOption{
@@ -105,7 +112,7 @@ func (c *GRPCClient) Randomness(
 	c.mutex.Unlock()
 
 	if cl == nil {
-		return nil, fmt.Errorf("vrf sidecar client not started")
+		return nil, errClientNotStarted
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
@@ -124,7 +131,7 @@ func (c *GRPCClient) Info(
 	c.mutex.Unlock()
 
 	if cl == nil {
-		return nil, fmt.Errorf("vrf sidecar client not started")
+		return nil, errClientNotStarted
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)

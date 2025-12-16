@@ -1,14 +1,26 @@
 package types
 
 import (
+	"errors"
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
+var (
+	errMsgVrfEmergencyDisableNil            = errors.New("MsgVrfEmergencyDisable: message cannot be nil")
+	errMsgUpdateParamsNil                   = errors.New("MsgUpdateParams: message cannot be nil")
+	errMsgAddVrfCommitteeMemberNil          = errors.New("MsgAddVrfCommitteeMember: message cannot be nil")
+	errMsgRemoveVrfCommitteeMemberNil       = errors.New("MsgRemoveVrfCommitteeMember: message cannot be nil")
+	errMsgRegisterVrfIdentityNil            = errors.New("MsgRegisterVrfIdentity: message cannot be nil")
+	errMsgRegisterVrfIdentityPublicKeyEmpty = errors.New("MsgRegisterVrfIdentity: drand_bls_public_key must not be empty")
+	errMsgScheduleVrfReshareNil             = errors.New("MsgScheduleVrfReshare: message cannot be nil")
+	errMsgScheduleVrfReshareEpochZero       = errors.New("MsgScheduleVrfReshare: reshare_epoch must be > 0")
+)
+
 func (m *MsgVrfEmergencyDisable) ValidateBasic() error {
 	if m == nil {
-		return fmt.Errorf("MsgVrfEmergencyDisable: message cannot be nil")
+		return errMsgVrfEmergencyDisableNil
 	}
 
 	if _, err := sdk.AccAddressFromBech32(m.Authority); err != nil {
@@ -21,7 +33,7 @@ func (m *MsgVrfEmergencyDisable) ValidateBasic() error {
 
 func (m *MsgUpdateParams) ValidateBasic() error {
 	if m == nil {
-		return fmt.Errorf("MsgUpdateParams: message cannot be nil")
+		return errMsgUpdateParamsNil
 	}
 
 	if _, err := sdk.AccAddressFromBech32(m.Authority); err != nil {
@@ -37,7 +49,7 @@ func (m *MsgUpdateParams) ValidateBasic() error {
 
 func (m *MsgAddVrfCommitteeMember) ValidateBasic() error {
 	if m == nil {
-		return fmt.Errorf("MsgAddVrfCommitteeMember: message cannot be nil")
+		return errMsgAddVrfCommitteeMemberNil
 	}
 
 	if _, err := sdk.AccAddressFromBech32(m.Authority); err != nil {
@@ -53,7 +65,7 @@ func (m *MsgAddVrfCommitteeMember) ValidateBasic() error {
 
 func (m *MsgRemoveVrfCommitteeMember) ValidateBasic() error {
 	if m == nil {
-		return fmt.Errorf("MsgRemoveVrfCommitteeMember: message cannot be nil")
+		return errMsgRemoveVrfCommitteeMemberNil
 	}
 
 	if _, err := sdk.AccAddressFromBech32(m.Authority); err != nil {
@@ -69,7 +81,7 @@ func (m *MsgRemoveVrfCommitteeMember) ValidateBasic() error {
 
 func (m *MsgRegisterVrfIdentity) ValidateBasic() error {
 	if m == nil {
-		return fmt.Errorf("MsgRegisterVrfIdentity: message cannot be nil")
+		return errMsgRegisterVrfIdentityNil
 	}
 
 	if _, err := sdk.AccAddressFromBech32(m.Operator); err != nil {
@@ -77,7 +89,7 @@ func (m *MsgRegisterVrfIdentity) ValidateBasic() error {
 	}
 
 	if len(m.DrandBlsPublicKey) == 0 {
-		return fmt.Errorf("MsgRegisterVrfIdentity: drand_bls_public_key must not be empty")
+		return errMsgRegisterVrfIdentityPublicKeyEmpty
 	}
 
 	return nil
@@ -85,7 +97,7 @@ func (m *MsgRegisterVrfIdentity) ValidateBasic() error {
 
 func (m *MsgScheduleVrfReshare) ValidateBasic() error {
 	if m == nil {
-		return fmt.Errorf("MsgScheduleVrfReshare: message cannot be nil")
+		return errMsgScheduleVrfReshareNil
 	}
 
 	if _, err := sdk.AccAddressFromBech32(m.Scheduler); err != nil {
@@ -93,7 +105,7 @@ func (m *MsgScheduleVrfReshare) ValidateBasic() error {
 	}
 
 	if m.ReshareEpoch == 0 {
-		return fmt.Errorf("MsgScheduleVrfReshare: reshare_epoch must be > 0")
+		return errMsgScheduleVrfReshareEpochZero
 	}
 
 	return nil

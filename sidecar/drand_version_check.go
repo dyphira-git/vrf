@@ -2,6 +2,7 @@ package sidecar
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"regexp"
@@ -18,6 +19,15 @@ const (
 	DrandVersionCheckOff    DrandVersionCheckMode = "off"
 )
 
+var (
+	errInvalidDrandVersionCheckMode = errors.New("invalid drand version check mode (expected strict|off)")
+	errDrandVersionOutputEmpty      = errors.New("drand version output is empty")
+	errParseDrandSemverFailed       = errors.New("unable to parse semver from drand version output")
+	errDrandVersionMismatch         = errors.New("drand version mismatch")
+	errDrandCommitMismatch          = errors.New("drand commit mismatch")
+	errMissingExpectedDrandSemver   = errors.New("drand version pinning is enabled but the sidecar build is missing an expected drand semver; rebuild with Makefile ldflags or run with --drand-version-check=off")
+)
+
 func ParseDrandVersionCheckMode(s string) (DrandVersionCheckMode, error) {
 	switch strings.ToLower(strings.TrimSpace(s)) {
 	case "", string(DrandVersionCheckStrict):
@@ -25,7 +35,7 @@ func ParseDrandVersionCheckMode(s string) (DrandVersionCheckMode, error) {
 	case string(DrandVersionCheckOff):
 		return DrandVersionCheckOff, nil
 	default:
-		return "", fmt.Errorf("invalid drand version check mode %q (expected strict|off)", s)
+		return "", fmt.Errorf("%w: %q", errInvalidDrandVersionCheckMode, s)
 	}
 }
 
@@ -38,18 +48,20 @@ type discoveredDrandVersion struct {
 var (
 	drandSemverRe = regexp.MustCompile(`\bv?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?\b`)
 	drandCommitRe = regexp.MustCompile(`(?i)\b(?:commit|revision|git)[\s:=]+([0-9a-f]{7,40})\b`)
+
+	drandVersionOutputFunc = drandVersionOutput
 )
 
 func parseDrandVersionOutput(output string) (discoveredDrandVersion, error) {
 	out := strings.TrimSpace(output)
 	if out == "" {
-		return discoveredDrandVersion{}, fmt.Errorf("drand version output is empty")
+		return discoveredDrandVersion{}, errDrandVersionOutputEmpty
 	}
 
 	semver := drandSemverRe.FindString(out)
 	semver = strings.TrimPrefix(semver, "v")
 	if semver == "" {
-		return discoveredDrandVersion{}, fmt.Errorf("unable to parse semver from drand version output: %q", out)
+		return discoveredDrandVersion{}, fmt.Errorf("%w: %q", errParseDrandSemverFailed, out)
 	}
 
 	var commit string
@@ -99,7 +111,7 @@ func checkDrandBinaryVersion(cfg Config, logger *zap.Logger) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	out, err := drandVersionOutput(ctx, path)
+	out, err := drandVersionOutputFunc(ctx, path)
 	if err != nil {
 		if mode == DrandVersionCheckOff {
 			logger.Warn("drand version check disabled; unable to probe drand binary", zap.Error(err))
@@ -135,21 +147,19 @@ func checkDrandBinaryVersion(cfg Config, logger *zap.Logger) error {
 	}
 
 	if expected.semver == "" {
-		return fmt.Errorf(
-			"drand version pinning is enabled but the sidecar build is missing an expected drand semver; rebuild with Makefile ldflags or run with --drand-version-check=off",
-		)
+		return errMissingExpectedDrandSemver
 	}
 
 	if discovered.semver != expected.semver {
-		return fmt.Errorf("drand version mismatch: got %q, expected %q", discovered.semver, expected.semver)
+		return fmt.Errorf("%w: got %q, expected %q", errDrandVersionMismatch, discovered.semver, expected.semver)
 	}
 
 	if expected.commit != "" {
 		if discovered.commit == "" {
-			return fmt.Errorf("drand commit mismatch: got <empty>, expected %q", expected.commit)
+			return fmt.Errorf("%w: got <empty>, expected %q", errDrandCommitMismatch, expected.commit)
 		}
 		if discovered.commit != expected.commit {
-			return fmt.Errorf("drand commit mismatch: got %q, expected %q", discovered.commit, expected.commit)
+			return fmt.Errorf("%w: got %q, expected %q", errDrandCommitMismatch, discovered.commit, expected.commit)
 		}
 	}
 

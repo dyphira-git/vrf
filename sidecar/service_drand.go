@@ -26,6 +26,24 @@ import (
 	servertypes "github.com/vexxvakan/vrf/sidecar/servers/vrf/types"
 )
 
+var (
+	errDrandHTTPEndpointRequired       = errors.New("drand HTTP endpoint must be provided")
+	errDrandChainConfigIncomplete      = errors.New("drand chain configuration is incomplete: chain hash, public key, period, and genesis are required")
+	errSidecarNilDrandChainInfo        = errors.New("sidecar: nil drand chain info")
+	errSidecarDrandChainHashMismatch   = errors.New("sidecar: drand chain hash mismatch")
+	errSidecarDrandPublicKeyMismatch   = errors.New("sidecar: drand public key mismatch")
+	errSidecarDrandPeriodMismatch      = errors.New("sidecar: drand period mismatch")
+	errSidecarDrandGenesisMismatch     = errors.New("sidecar: drand genesis mismatch")
+	errDrandReturnedNon200             = errors.New("drand returned non-200")
+	errDrandInfoReturnedNon200         = errors.New("drand /info returned non-200")
+	errInvalidDrandHTTPEndpointScheme  = errors.New("invalid drand HTTP endpoint scheme")
+	errDrandHTTPEndpointMissingHost    = errors.New("drand HTTP endpoint must include host")
+	errDrandHTTPEndpointNotLoopback    = errors.New("drand HTTP endpoint must be loopback-only")
+	errDrandVerificationNotInitialized = errors.New("drand verification not initialized")
+	errNilDrandChainInfo               = errors.New("nil drand chain info")
+	errEmptyHexString                  = errors.New("empty hex string")
+)
+
 // DrandService implements Service by talking to a local drand HTTP endpoint
 // using only statically configured URLs. It can also be used alongside a
 // supervised drand subprocess (see StartDrandProcess).
@@ -68,15 +86,17 @@ func NewDrandService(
 	}
 
 	if strings.TrimSpace(cfg.DrandHTTP) == "" {
-		return nil, fmt.Errorf("drand HTTP endpoint must be provided")
+		return nil, errDrandHTTPEndpointRequired
 	}
 
-	if err := enforceLoopbackHTTP(cfg.DrandHTTP); err != nil {
-		return nil, err
+	if !cfg.DrandAllowNonLoopbackHTTP {
+		if err := enforceLoopbackHTTP(cfg.DrandHTTP); err != nil {
+			return nil, err
+		}
 	}
 
 	if len(cfg.ChainHash) == 0 || len(cfg.PublicKey) == 0 || cfg.PeriodSeconds == 0 || cfg.GenesisUnixSec == 0 {
-		return nil, fmt.Errorf("drand chain configuration is incomplete: chain hash, public key, period, and genesis are required")
+		return nil, errDrandChainConfigIncomplete
 	}
 
 	if err := checkDrandBinaryVersion(cfg, logger); err != nil {
@@ -132,62 +152,26 @@ func NewDrandService(
 // the configured expected values (which should match on-chain VrfParams).
 func ValidateDrandChainInfo(info *servertypes.QueryInfoResponse, cfg Config) error {
 	if info == nil {
-		return fmt.Errorf("sidecar: nil drand chain info")
+		return errSidecarNilDrandChainInfo
 	}
 
 	if !bytes.Equal(info.ChainHash, cfg.ChainHash) {
-		return fmt.Errorf("sidecar: drand chain hash mismatch: got %x, expected %x", info.ChainHash, cfg.ChainHash)
+		return fmt.Errorf("%w: got %x, expected %x", errSidecarDrandChainHashMismatch, info.ChainHash, cfg.ChainHash)
 	}
 
 	if !bytes.Equal(info.PublicKey, cfg.PublicKey) {
-		return fmt.Errorf("sidecar: drand public key mismatch")
+		return errSidecarDrandPublicKeyMismatch
 	}
 
 	if info.PeriodSeconds != cfg.PeriodSeconds {
-		return fmt.Errorf("sidecar: drand period mismatch: got %d, expected %d", info.PeriodSeconds, cfg.PeriodSeconds)
+		return fmt.Errorf("%w: got %d, expected %d", errSidecarDrandPeriodMismatch, info.PeriodSeconds, cfg.PeriodSeconds)
 	}
 
 	if info.GenesisUnixSec != cfg.GenesisUnixSec {
-		return fmt.Errorf("sidecar: drand genesis mismatch: got %d, expected %d", info.GenesisUnixSec, cfg.GenesisUnixSec)
+		return fmt.Errorf("%w: got %d, expected %d", errSidecarDrandGenesisMismatch, info.GenesisUnixSec, cfg.GenesisUnixSec)
 	}
 
 	return nil
-}
-
-func (s *DrandService) acquireFetch() func() {
-	s.fetchSem <- struct{}{}
-	return func() { <-s.fetchSem }
-}
-
-func (s *DrandService) cacheLatest(now time.Time, beacon *servertypes.QueryRandomnessResponse) {
-	s.cacheMu.Lock()
-	defer s.cacheMu.Unlock()
-	s.cachedLatest = cloneRandomnessResponse(beacon)
-	s.cachedAt = now
-}
-
-func (s *DrandService) cachedLatestBeacon(now time.Time) (*servertypes.QueryRandomnessResponse, bool) {
-	s.cacheMu.RLock()
-	defer s.cacheMu.RUnlock()
-
-	if s.cachedLatest == nil {
-		return nil, false
-	}
-	if s.cacheTTL <= 0 || now.Sub(s.cachedAt) > s.cacheTTL {
-		return nil, false
-	}
-	return cloneRandomnessResponse(s.cachedLatest), true
-}
-
-func (s *DrandService) observeTimeSinceLastSuccess(now time.Time) {
-	lastNanos := s.lastSuccessUnixNano.Load()
-	if lastNanos == 0 {
-		s.metrics.ObserveTimeSinceLastSuccess(0)
-		return
-	}
-
-	last := time.Unix(0, lastNanos)
-	s.metrics.ObserveTimeSinceLastSuccess(now.Sub(last).Seconds())
 }
 
 // Randomness fetches a beacon for the given round from the configured drand
@@ -207,7 +191,7 @@ func (s *DrandService) Randomness(
 
 	key := fmt.Sprintf("round-%d", round)
 
-	v, err, _ := s.sf.Do(key, func() (interface{}, error) {
+	v, err, _ := s.sf.Do(key, func() (any, error) {
 		release := s.acquireFetch()
 		defer release()
 		return s.fetchBeacon(ctx, round)
@@ -252,6 +236,42 @@ func (s *DrandService) Info(ctx context.Context) (*servertypes.QueryInfoResponse
 	return infoRes, nil
 }
 
+func (s *DrandService) acquireFetch() func() {
+	s.fetchSem <- struct{}{}
+	return func() { <-s.fetchSem }
+}
+
+func (s *DrandService) cacheLatest(now time.Time, beacon *servertypes.QueryRandomnessResponse) {
+	s.cacheMu.Lock()
+	defer s.cacheMu.Unlock()
+	s.cachedLatest = cloneRandomnessResponse(beacon)
+	s.cachedAt = now
+}
+
+func (s *DrandService) cachedLatestBeacon(now time.Time) (*servertypes.QueryRandomnessResponse, bool) {
+	s.cacheMu.RLock()
+	defer s.cacheMu.RUnlock()
+
+	if s.cachedLatest == nil {
+		return nil, false
+	}
+	if s.cacheTTL <= 0 || now.Sub(s.cachedAt) > s.cacheTTL {
+		return nil, false
+	}
+	return cloneRandomnessResponse(s.cachedLatest), true
+}
+
+func (s *DrandService) observeTimeSinceLastSuccess(now time.Time) {
+	lastNanos := s.lastSuccessUnixNano.Load()
+	if lastNanos == 0 {
+		s.metrics.ObserveTimeSinceLastSuccess(0)
+		return
+	}
+
+	last := time.Unix(0, lastNanos)
+	s.metrics.ObserveTimeSinceLastSuccess(now.Sub(last).Seconds())
+}
+
 // drandHTTPBeacon is a minimal view of the drand HTTP randomness response.
 type drandHTTPBeacon struct {
 	Round             uint64 `json:"round"`
@@ -283,8 +303,16 @@ func (s *DrandService) fetchBeacon(ctx context.Context, round uint64) (*serverty
 		switch result {
 		case sidecarmetrics.FetchSuccess, sidecarmetrics.FetchNotFound:
 			s.logger.Info("drand fetch attempt", fields...)
-		default:
+		case sidecarmetrics.FetchTimeout,
+			sidecarmetrics.FetchHTTPError,
+			sidecarmetrics.FetchDecodeError,
+			sidecarmetrics.FetchHashMismatch,
+			sidecarmetrics.FetchBadSignature,
+			sidecarmetrics.FetchWrongRound,
+			sidecarmetrics.FetchOther:
 			s.logger.Warn("drand fetch attempt", fields...)
+		default:
+			s.logger.Warn("drand fetch attempt (unknown result)", fields...)
 		}
 	}()
 
@@ -318,7 +346,7 @@ func (s *DrandService) fetchBeacon(ctx context.Context, round uint64) (*serverty
 
 		return nil, retErr
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusNotFound {
 		retErr = ErrRoundNotAvailable
@@ -327,7 +355,7 @@ func (s *DrandService) fetchBeacon(ctx context.Context, round uint64) (*serverty
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		retErr = fmt.Errorf("drand returned non-200: %s", resp.Status)
+		retErr = fmt.Errorf("%w: %s", errDrandReturnedNon200, resp.Status)
 		result = sidecarmetrics.FetchHTTPError
 		return nil, retErr
 	}
@@ -410,7 +438,7 @@ func (s *DrandService) fetchBeacon(ctx context.Context, round uint64) (*serverty
 
 func (s *DrandService) verifyBeacon(round uint64, sig, prevSig []byte) error {
 	if s.scheme == nil || s.pubKey == nil {
-		return fmt.Errorf("drand verification not initialized")
+		return errDrandVerificationNotInitialized
 	}
 
 	if strings.HasSuffix(s.scheme.Name, "-chained") && round > 1 && len(prevSig) == 0 {
@@ -447,10 +475,10 @@ func (s *DrandService) fetchChainInfo(ctx context.Context) (*chain.Info, error) 
 	if err != nil {
 		return nil, fmt.Errorf("querying drand /info: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("drand /info returned non-200: %s", resp.Status)
+		return nil, fmt.Errorf("%w: %s", errDrandInfoReturnedNon200, resp.Status)
 	}
 
 	info, err := chain.InfoFromJSON(resp.Body)
@@ -463,7 +491,7 @@ func (s *DrandService) fetchChainInfo(ctx context.Context) (*chain.Info, error) 
 
 func queryInfoResponseFromChainInfo(info *chain.Info) (*servertypes.QueryInfoResponse, error) {
 	if info == nil {
-		return nil, fmt.Errorf("nil drand chain info")
+		return nil, errNilDrandChainInfo
 	}
 
 	pubKey, err := info.PublicKey.MarshalBinary()
@@ -503,7 +531,7 @@ func decodeHexBytes(s string) ([]byte, error) {
 	s = strings.TrimSpace(s)
 	s = strings.TrimPrefix(s, "0x")
 	if s == "" {
-		return nil, fmt.Errorf("empty hex string")
+		return nil, errEmptyHexString
 	}
 	return hex.DecodeString(s)
 }
@@ -515,12 +543,12 @@ func enforceLoopbackHTTP(endpoint string) error {
 	}
 
 	if u.Scheme != "http" && u.Scheme != "https" {
-		return fmt.Errorf("invalid drand HTTP endpoint scheme: %q", u.Scheme)
+		return fmt.Errorf("%w: %q", errInvalidDrandHTTPEndpointScheme, u.Scheme)
 	}
 
 	host := u.Hostname()
 	if host == "" {
-		return fmt.Errorf("drand HTTP endpoint must include host")
+		return errDrandHTTPEndpointMissingHost
 	}
 
 	if strings.EqualFold(host, "localhost") {
@@ -529,7 +557,7 @@ func enforceLoopbackHTTP(endpoint string) error {
 
 	ip := net.ParseIP(host)
 	if ip == nil || !ip.IsLoopback() {
-		return fmt.Errorf("drand HTTP endpoint must be loopback-only, got host %q", host)
+		return fmt.Errorf("%w: got host %q", errDrandHTTPEndpointNotLoopback, host)
 	}
 
 	return nil

@@ -2,7 +2,7 @@ package ve_test
 
 import (
 	"bytes"
-	"fmt"
+	"errors"
 	"sort"
 	"testing"
 
@@ -31,6 +31,8 @@ import (
 const (
 	chainID = "chain-id"
 )
+
+var errValidatorNotFound = errors.New("validator not found")
 
 type testValidator struct {
 	consAddr sdk.ConsAddress
@@ -474,7 +476,7 @@ func (s *ABCIUtilsTestSuite) TestValidateVoteExtensionsPrunedValidator() {
 	// validator 1 is pruned.
 	s.valStore.EXPECT().GetPubKeyByConsAddr(gomock.Any(), s.vals[1].consAddr).Return(
 		cmtprotocrypto.PublicKey{},
-		fmt.Errorf("validator not found"),
+		errValidatorNotFound,
 	).Times(1)
 	s.valStore.EXPECT().GetPubKeyByConsAddr(gomock.Any(), s.vals[2].consAddr.Bytes()).Return(s.vals[2].tmPk, nil).Times(1)
 

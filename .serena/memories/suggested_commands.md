@@ -22,9 +22,7 @@
 
 ## Dev environment
 
-- Create dev stack: `make docker-up`
-- Close dev stack: `make docker-down`
-- Start sidecar-only: `make docker-sidecar-start`
-- Stop sidecar-only: `make docker-sidecar-stop`
-- Start chain-only: `make docker-chain-start`
-- Stop chain-only: `make docker-chain-stop`
+- Start dev stack (chain + sidecar): `make docker-up` (or `docker compose up`)
+- Stop dev stack (keeps containers): `make docker-stop` (or `docker compose stop`)
+- Remove dev stack: `make docker-down` (or `docker compose down`)
+- Remove dev stack + volumes: `make docker-down-clean` (or `docker compose down -v`)

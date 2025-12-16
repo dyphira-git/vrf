@@ -36,7 +36,7 @@ var tempDir = func() string {
 	return dir
 }
 
-func addModuleInitFlags(startCmd *cobra.Command) {
+func addModuleInitFlags(_ *cobra.Command) {
 }
 
 // genesisCommand builds genesis-related `simd genesis` command. Users may provide application specific commands as a parameter

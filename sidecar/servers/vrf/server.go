@@ -98,7 +98,7 @@ func (s *Server) SetGRPCConfig(cfg GRPCServerConfig) error {
 
 func (s *Server) StartWithListener(ctx context.Context, ln net.Listener) error {
 	if s.svc == nil {
-		return fmt.Errorf("vrf service is nil")
+		return errVrfServiceNil
 	}
 
 	newGRPC := s.newGRPC
@@ -138,7 +138,7 @@ func (s *Server) Start(ctx context.Context, addr string) error {
 	if strings.HasPrefix(addr, "unix://") {
 		path := strings.TrimPrefix(addr, "unix://")
 		if strings.TrimSpace(path) == "" {
-			return fmt.Errorf("vrf unix listener path cannot be empty")
+			return errVrfUnixListenerPathEmpty
 		}
 		_ = os.Remove(path)
 
@@ -158,6 +158,48 @@ func (s *Server) Start(ctx context.Context, addr string) error {
 		return err
 	}
 	return s.StartWithListener(ctx, ln)
+}
+
+func (s *Server) Randomness(
+	ctx context.Context,
+	req *types.QueryRandomnessRequest,
+) (*types.QueryRandomnessResponse, error) {
+	if req == nil {
+		return nil, errNilQueryRandomnessRequest
+	}
+
+	if err := s.allow(ctx, "Randomness"); err != nil {
+		return nil, err
+	}
+
+	release := s.acquire("Randomness")
+	defer release()
+
+	res, err := s.svc.Randomness(ctx, req.Round)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (s *Server) Info(
+	ctx context.Context,
+	_ *types.QueryInfoRequest,
+) (*types.QueryInfoResponse, error) {
+	if err := s.allow(ctx, "Info"); err != nil {
+		return nil, err
+	}
+
+	release := s.acquire("Info")
+	defer release()
+
+	info, err := s.svc.Info(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return info, nil
 }
 
 func (s *Server) acquire(method string) func() {
@@ -254,46 +296,4 @@ func clientKeyFromContext(ctx context.Context) string {
 		}
 		return p.Addr.Network() + ":" + str
 	}
-}
-
-func (s *Server) Randomness(
-	ctx context.Context,
-	req *types.QueryRandomnessRequest,
-) (*types.QueryRandomnessResponse, error) {
-	if req == nil {
-		return nil, fmt.Errorf("nil QueryRandomnessRequest")
-	}
-
-	if err := s.allow(ctx, "Randomness"); err != nil {
-		return nil, err
-	}
-
-	release := s.acquire("Randomness")
-	defer release()
-
-	res, err := s.svc.Randomness(ctx, req.Round)
-	if err != nil {
-		return nil, err
-	}
-
-	return res, nil
-}
-
-func (s *Server) Info(
-	ctx context.Context,
-	_ *types.QueryInfoRequest,
-) (*types.QueryInfoResponse, error) {
-	if err := s.allow(ctx, "Info"); err != nil {
-		return nil, err
-	}
-
-	release := s.acquire("Info")
-	defer release()
-
-	info, err := s.svc.Info(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return info, nil
 }

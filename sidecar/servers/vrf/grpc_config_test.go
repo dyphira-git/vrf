@@ -34,7 +34,7 @@ func TestGRPCServerConfig_KeepaliveParams_DefaultsAppliedWhenAnyFieldIsSet(t *te
 
 	kp, ok := cfg.keepaliveParams()
 	if !ok {
-		t.Fatalf("expected keepalive params to be applied")
+		t.Fatal("expected keepalive params to be applied")
 	}
 	if kp.MaxConnectionAge != time.Hour {
 		t.Fatalf("expected MaxConnectionAge=1h, got %v", kp.MaxConnectionAge)
@@ -56,13 +56,13 @@ func TestGRPCServerConfig_EnforcementPolicy_DefaultsAppliedWhenPermitWithoutStre
 
 	ep, ok := cfg.enforcementPolicy()
 	if !ok {
-		t.Fatalf("expected enforcement policy to be applied")
+		t.Fatal("expected enforcement policy to be applied")
 	}
 	if ep.MinTime != 5*time.Minute {
 		t.Fatalf("expected default MinTime=5m, got %v", ep.MinTime)
 	}
 	if !ep.PermitWithoutStream {
-		t.Fatalf("expected PermitWithoutStream=true")
+		t.Fatal("expected PermitWithoutStream=true")
 	}
 }
 
@@ -73,7 +73,7 @@ func TestGRPCServerConfig_Validate_NegativeValuesRejected(t *testing.T) {
 		KeepaliveTimeout: -1 * time.Second,
 	}
 	if err := cfg.Validate(); err == nil {
-		t.Fatalf("expected Validate error for negative duration")
+		t.Fatal("expected Validate error for negative duration")
 	}
 }
 
@@ -104,6 +104,6 @@ func TestServer_StartWithListener_PassesHardeningOptionsToGRPCServer(t *testing.
 		t.Fatalf("StartWithListener returned error: %v", err)
 	}
 	if got == 0 {
-		t.Fatalf("expected grpc.ServerOption(s) to be passed to grpc.NewServer")
+		t.Fatal("expected grpc.ServerOption(s) to be passed to grpc.NewServer")
 	}
 }

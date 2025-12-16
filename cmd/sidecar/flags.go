@@ -31,6 +31,7 @@ type cliConfig struct {
 
 	DrandSupervise     bool
 	DrandHTTP          string
+	DrandAllowNonLoop  bool
 	DrandPublicAddr    string
 	DrandPrivateAddr   string
 	DrandControlAddr   string
@@ -82,6 +83,7 @@ func parseFlags(args []string) (cliConfig, bool, error) {
 
 	drandSupervise := fs.Bool("drand-supervise", true, "start and supervise a local drand subprocess")
 	drandHTTP := fs.String("drand-http", "", "drand HTTP base URL (defaults to http://<drand-public-addr>)")
+	drandAllowNonLoop := fs.Bool("drand-allow-non-loopback-http", false, "allow drand-http to point at a non-loopback host (unsafe; intended for containerized dev)")
 	drandPublic := fs.String("drand-public-addr", "127.0.0.1:8081", "drand public listen address (also used for HTTP)")
 	drandPrivate := fs.String("drand-private-addr", "0.0.0.0:4444", "drand private listen address")
 	drandControl := fs.String("drand-control-addr", "127.0.0.1:8881", "drand control listen address")
@@ -139,6 +141,7 @@ func parseFlags(args []string) (cliConfig, bool, error) {
 		DebugHTTPAddr:       *debugHTTPAddr,
 		DrandSupervise:      *drandSupervise,
 		DrandHTTP:           *drandHTTP,
+		DrandAllowNonLoop:   *drandAllowNonLoop,
 		DrandPublicAddr:     *drandPublic,
 		DrandPrivateAddr:    *drandPrivate,
 		DrandControlAddr:    *drandControl,

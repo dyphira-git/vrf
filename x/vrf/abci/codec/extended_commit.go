@@ -22,7 +22,7 @@ func NewDefaultExtendedCommitCodec() *DefaultExtendedCommitCodec {
 	return &DefaultExtendedCommitCodec{}
 }
 
-func (codec *DefaultExtendedCommitCodec) Encode(ec cometabci.ExtendedCommitInfo) ([]byte, error) {
+func (*DefaultExtendedCommitCodec) Encode(ec cometabci.ExtendedCommitInfo) ([]byte, error) {
 	bz, err := (&ec).Marshal()
 	if err != nil {
 		return nil, fmt.Errorf("encode extended commit info: %w", err)
@@ -31,7 +31,7 @@ func (codec *DefaultExtendedCommitCodec) Encode(ec cometabci.ExtendedCommitInfo)
 	return bz, nil
 }
 
-func (codec *DefaultExtendedCommitCodec) Decode(bz []byte) (cometabci.ExtendedCommitInfo, error) {
+func (*DefaultExtendedCommitCodec) Decode(bz []byte) (cometabci.ExtendedCommitInfo, error) {
 	var ec cometabci.ExtendedCommitInfo
 	if err := (&ec).Unmarshal(bz); err != nil {
 		return cometabci.ExtendedCommitInfo{}, fmt.Errorf("decode extended commit info: %w", err)

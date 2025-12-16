@@ -13,20 +13,20 @@ func (e PreBlockError) Error() string {
 	return fmt.Sprintf("finalize block error: %s", e.Err.Error())
 }
 
-func (e PreBlockError) Label() string {
+func (PreBlockError) Label() string {
 	return "PreBlockError"
 }
 
-// ErrPanic is an error that is returned when a panic occurs in the ABCI handler.
-type ErrPanic struct {
+// PanicError is an error that is returned when a panic occurs in the ABCI handler.
+type PanicError struct {
 	Err error
 }
 
-func (e ErrPanic) Error() string {
+func (e PanicError) Error() string {
 	return fmt.Sprintf("panic: %s", e.Err.Error())
 }
 
-func (e ErrPanic) Label() string {
+func (PanicError) Label() string {
 	return "Panic"
 }
 
@@ -39,7 +39,7 @@ func (e OracleClientError) Error() string {
 	return fmt.Sprintf("oracle client error: %s", e.Err.Error())
 }
 
-func (e OracleClientError) Label() string {
+func (OracleClientError) Label() string {
 	return "OracleClientError"
 }
 
@@ -53,7 +53,7 @@ func (e TransformPricesError) Error() string {
 	return fmt.Sprintf("prices transform error: %s", e.Err.Error())
 }
 
-func (e TransformPricesError) Label() string {
+func (TransformPricesError) Label() string {
 	return "TransformPricesError"
 }
 
@@ -66,6 +66,6 @@ func (e ValidateVoteExtensionError) Error() string {
 	return fmt.Sprintf("validate vote extension error: %s", e.Err.Error())
 }
 
-func (e ValidateVoteExtensionError) Label() string {
+func (ValidateVoteExtensionError) Label() string {
 	return "ValidateVoteExtensionError"
 }

@@ -1,14 +1,15 @@
 package sidecar
 
 import (
-	"os"
-	"path/filepath"
-	"strings"
+	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
+
+var errTestDrandBinaryNotFound = errors.New("drand binary not found")
 
 func TestParseDrandVersionOutput(t *testing.T) {
 	tcs := []struct {
@@ -55,9 +56,11 @@ func TestParseDrandVersionOutput(t *testing.T) {
 }
 
 func TestCheckDrandBinaryVersion_Strict(t *testing.T) {
+	oldOutputFn := drandVersionOutputFunc
 	oldSemver := expectedDrandSemver
 	oldCommit := expectedDrandCommit
 	t.Cleanup(func() {
+		drandVersionOutputFunc = oldOutputFn
 		expectedDrandSemver = oldSemver
 		expectedDrandCommit = oldCommit
 	})
@@ -65,27 +68,23 @@ func TestCheckDrandBinaryVersion_Strict(t *testing.T) {
 	expectedDrandSemver = "2.2.0"
 	expectedDrandCommit = ""
 
-	tmp := t.TempDir()
-	binPath := filepath.Join(tmp, "drand-mock.sh")
-
-	script := strings.Join([]string{
-		"#!/bin/sh",
-		`echo "drand 2.2.0 (commit: deadbeef)"`,
-		"",
-	}, "\n")
-	require.NoError(t, os.WriteFile(binPath, []byte(script), 0o755))
+	drandVersionOutputFunc = func(context.Context, string) (string, error) {
+		return "drand 2.2.0 (commit: deadbeef)", nil
+	}
 
 	err := checkDrandBinaryVersion(Config{
-		BinaryPath:        binPath,
+		BinaryPath:        "drand-mock",
 		DrandVersionCheck: DrandVersionCheckStrict,
 	}, zap.NewNop())
 	require.NoError(t, err)
 }
 
 func TestCheckDrandBinaryVersion_StrictMismatch(t *testing.T) {
+	oldOutputFn := drandVersionOutputFunc
 	oldSemver := expectedDrandSemver
 	oldCommit := expectedDrandCommit
 	t.Cleanup(func() {
+		drandVersionOutputFunc = oldOutputFn
 		expectedDrandSemver = oldSemver
 		expectedDrandCommit = oldCommit
 	})
@@ -93,26 +92,27 @@ func TestCheckDrandBinaryVersion_StrictMismatch(t *testing.T) {
 	expectedDrandSemver = "2.2.0"
 	expectedDrandCommit = ""
 
-	tmp := t.TempDir()
-	binPath := filepath.Join(tmp, "drand-mock.sh")
-
-	script := strings.Join([]string{
-		"#!/bin/sh",
-		`echo "drand 2.1.9"`,
-		"",
-	}, "\n")
-	require.NoError(t, os.WriteFile(binPath, []byte(script), 0o755))
+	drandVersionOutputFunc = func(context.Context, string) (string, error) {
+		return "drand 2.1.9", nil
+	}
 
 	err := checkDrandBinaryVersion(Config{
-		BinaryPath:        binPath,
+		BinaryPath:        "drand-mock",
 		DrandVersionCheck: DrandVersionCheckStrict,
 	}, zap.NewNop())
 	require.Error(t, err)
 }
 
 func TestCheckDrandBinaryVersion_OffSkipsFailures(t *testing.T) {
+	oldOutputFn := drandVersionOutputFunc
+	t.Cleanup(func() { drandVersionOutputFunc = oldOutputFn })
+
+	drandVersionOutputFunc = func(context.Context, string) (string, error) {
+		return "", errTestDrandBinaryNotFound
+	}
+
 	err := checkDrandBinaryVersion(Config{
-		BinaryPath:        filepath.Join(t.TempDir(), "missing-drand"),
+		BinaryPath:        "missing-drand",
 		DrandVersionCheck: DrandVersionCheckOff,
 	}, zap.NewNop())
 	require.NoError(t, err)

@@ -2,9 +2,7 @@ package sidecar
 
 import (
 	"context"
-	"os"
 	"os/exec"
-	"strconv"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -12,36 +10,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestHelperProcess(t *testing.T) {
-	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
-		return
-	}
-
-	exitCode, _ := strconv.Atoi(os.Getenv("HELPER_EXIT_CODE"))
-	sleepMs, _ := strconv.Atoi(os.Getenv("HELPER_SLEEP_MS"))
-
-	if sleepMs > 0 {
-		time.Sleep(time.Duration(sleepMs) * time.Millisecond)
-	}
-
-	os.Exit(exitCode) //nolint:revive // helper process must exit
-}
-
 func TestNormalizeRestartBackoff(t *testing.T) {
-	min, max, err := normalizeRestartBackoff(0, 0)
+	minDelay, maxDelay, err := normalizeRestartBackoff(0, 0)
 	require.NoError(t, err)
-	require.Equal(t, 1*time.Second, min)
-	require.Equal(t, 30*time.Second, max)
+	require.Equal(t, 1*time.Second, minDelay)
+	require.Equal(t, 30*time.Second, maxDelay)
 
-	min, max, err = normalizeRestartBackoff(2*time.Second, 0)
+	minDelay, maxDelay, err = normalizeRestartBackoff(2*time.Second, 0)
 	require.NoError(t, err)
-	require.Equal(t, 2*time.Second, min)
-	require.Equal(t, 30*time.Second, max)
+	require.Equal(t, 2*time.Second, minDelay)
+	require.Equal(t, 30*time.Second, maxDelay)
 
-	min, max, err = normalizeRestartBackoff(0, 5*time.Second)
+	minDelay, maxDelay, err = normalizeRestartBackoff(0, 5*time.Second)
 	require.NoError(t, err)
-	require.Equal(t, 1*time.Second, min)
-	require.Equal(t, 5*time.Second, max)
+	require.Equal(t, 1*time.Second, minDelay)
+	require.Equal(t, 5*time.Second, maxDelay)
 
 	_, _, err = normalizeRestartBackoff(5*time.Second, 2*time.Second)
 	require.Error(t, err)
@@ -61,12 +44,7 @@ func TestDrandProcess_NoRestart(t *testing.T) {
 	var startCalls atomic.Int64
 	execCommand = func(string, ...string) *exec.Cmd {
 		startCalls.Add(1)
-		cmd := exec.Command(os.Args[0], "-test.run=TestHelperProcess", "--")
-		cmd.Env = append(os.Environ(),
-			"GO_WANT_HELPER_PROCESS=1",
-			"HELPER_EXIT_CODE=0",
-		)
-		return cmd
+		return exec.Command("go", "version")
 	}
 
 	p, err := StartDrandProcess(context.Background(), DrandProcessConfig{
@@ -100,12 +78,7 @@ func TestDrandProcess_BackoffSequence(t *testing.T) {
 	})
 
 	execCommand = func(string, ...string) *exec.Cmd {
-		cmd := exec.Command(os.Args[0], "-test.run=TestHelperProcess", "--")
-		cmd.Env = append(os.Environ(),
-			"GO_WANT_HELPER_PROCESS=1",
-			"HELPER_EXIT_CODE=0",
-		)
-		return cmd
+		return exec.Command("go", "version")
 	}
 
 	type afterCall struct {

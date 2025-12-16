@@ -35,7 +35,7 @@ func run() int {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
 		}
-		fmt.Fprintln(os.Stderr, err)
+		_, _ = fmt.Fprintln(os.Stderr, err)
 		return 2
 	}
 
@@ -46,7 +46,7 @@ func run() int {
 
 	logger, err := zap.NewProduction()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		_, _ = fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
 	defer func() { _ = logger.Sync() }()
@@ -92,14 +92,15 @@ func run() int {
 	}
 
 	drandCfg := sidecar.Config{
-		DrandSupervise:     cfg.DrandSupervise,
-		DrandHTTP:          strings.TrimSpace(cfg.DrandHTTP),
-		BinaryPath:         cfg.DrandBinary,
-		DrandVersionCheck:  versionMode,
-		DrandDataDir:       cfg.DrandDataDir,
-		DrandPublicListen:  cfg.DrandPublicAddr,
-		DrandPrivateListen: cfg.DrandPrivateAddr,
-		DrandControlListen: cfg.DrandControlAddr,
+		DrandSupervise:            cfg.DrandSupervise,
+		DrandHTTP:                 strings.TrimSpace(cfg.DrandHTTP),
+		DrandAllowNonLoopbackHTTP: cfg.DrandAllowNonLoop,
+		BinaryPath:                cfg.DrandBinary,
+		DrandVersionCheck:         versionMode,
+		DrandDataDir:              cfg.DrandDataDir,
+		DrandPublicListen:         cfg.DrandPublicAddr,
+		DrandPrivateListen:        cfg.DrandPrivateAddr,
+		DrandControlListen:        cfg.DrandControlAddr,
 	}
 
 	if drandCfg.DrandHTTP == "" {
@@ -142,7 +143,7 @@ func run() int {
 				return 1
 			}
 
-			drandCtl = newDrandController(ctx, sidecar.DrandProcessConfig{
+			drandCtl = newDrandController(sidecar.DrandProcessConfig{
 				BinaryPath:        drandCfg.BinaryPath,
 				DataDir:           drandCfg.DrandDataDir,
 				PrivateListen:     drandCfg.DrandPrivateListen,
@@ -199,7 +200,7 @@ func run() int {
 			defer proc.Stop()
 		}
 
-		svc, err := newDrandServiceWithRetry(ctx, drandCfg, logger, metrics, 30*time.Second)
+		svc, err := newDrandServiceWithRetry(ctx, drandCfg, logger, metrics)
 		if err != nil {
 			logger.Error("failed to create drand service", zap.Error(err))
 			return 1
@@ -235,9 +236,8 @@ func newDrandServiceWithRetry(
 	cfg sidecar.Config,
 	logger *zap.Logger,
 	metrics sidecarmetrics.Metrics,
-	timeout time.Duration,
 ) (*sidecar.DrandService, error) {
-	deadline := time.Now().Add(timeout)
+	deadline := time.Now().Add(30 * time.Second)
 	var lastErr error
 
 	for time.Now().Before(deadline) {
@@ -300,6 +300,8 @@ func printVersion(out io.Writer) {
 			revision = s.Value
 		case "vcs.modified":
 			modified = s.Value
+		default:
+			continue
 		}
 	}
 

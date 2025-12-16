@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/exec"
 	"strings"
@@ -22,7 +23,12 @@ var (
 	execCommand = exec.Command
 	timeAfter   = time.After
 
-	errInvalidRestartBackoff = errors.New("invalid drand restart backoff config")
+	errInvalidRestartBackoff          = errors.New("invalid drand restart backoff config")
+	errDrandDataDirRequired           = errors.New("drand data dir must be provided")
+	errDrandPrivateListenAddrRequired = errors.New("drand private listen address must be provided")
+	errDrandPublicListenAddrRequired  = errors.New("drand public listen address must be provided")
+	errDrandControlListenAddrRequired = errors.New("drand control listen address must be provided")
+	errDrandProcessNotStarted         = errors.New("drand process is not started")
 )
 
 // DrandProcessConfig configures the supervised drand subprocess.
@@ -55,8 +61,8 @@ type DrandProcess struct {
 	logger  *zap.Logger
 	metrics sidecarmetrics.Metrics
 
-	ctx    context.Context
-	cancel context.CancelFunc
+	ctxDone <-chan struct{}
+	cancel  context.CancelFunc
 
 	mu  sync.Mutex
 	cmd *exec.Cmd
@@ -83,22 +89,22 @@ func StartDrandProcess(
 	}
 
 	if strings.TrimSpace(cfg.DataDir) == "" {
-		return nil, fmt.Errorf("drand data dir must be provided")
+		return nil, errDrandDataDirRequired
 	}
 
 	if strings.TrimSpace(cfg.PrivateListen) == "" {
-		return nil, fmt.Errorf("drand private listen address must be provided")
+		return nil, errDrandPrivateListenAddrRequired
 	}
 
 	if strings.TrimSpace(cfg.PublicListen) == "" {
-		return nil, fmt.Errorf("drand public listen address must be provided")
+		return nil, errDrandPublicListenAddrRequired
 	}
 
 	if strings.TrimSpace(cfg.ControlListen) == "" {
-		return nil, fmt.Errorf("drand control listen address must be provided")
+		return nil, errDrandControlListenAddrRequired
 	}
 
-	if err := os.MkdirAll(cfg.DataDir, 0o755); err != nil {
+	if err := os.MkdirAll(cfg.DataDir, 0o750); err != nil {
 		return nil, fmt.Errorf("creating drand data dir: %w", err)
 	}
 
@@ -114,7 +120,7 @@ func StartDrandProcess(
 			zap.String("component", "sidecar-drand-process"),
 		),
 		metrics:           m,
-		ctx:               ctx,
+		ctxDone:           ctx.Done(),
 		cancel:            cancel,
 		restartBackoffMin: restartMin,
 		restartBackoffMax: restartMax,
@@ -131,6 +137,32 @@ func StartDrandProcess(
 	return p, nil
 }
 
+// Stop terminates the supervised drand process and stops further restarts.
+func (p *DrandProcess) Stop() {
+	if p == nil {
+		return
+	}
+
+	p.cancel()
+
+	p.mu.Lock()
+	cmd := p.cmd
+	p.mu.Unlock()
+
+	if cmd != nil && cmd.Process != nil {
+		_ = cmd.Process.Signal(syscall.SIGTERM)
+	}
+
+	select {
+	case <-p.done:
+	case <-time.After(10 * time.Second):
+		if cmd != nil && cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+		<-p.done
+	}
+}
+
 func (p *DrandProcess) supervise() {
 	defer close(p.done)
 
@@ -140,8 +172,10 @@ func (p *DrandProcess) supervise() {
 		exitCode, exitCodeOK := exitCodeFromWaitErr(err)
 
 		p.metrics.SetDrandProcessHealthy(false)
-		if p.ctx.Err() != nil {
+		select {
+		case <-p.ctxDone:
 			return
+		default:
 		}
 
 		exitFields := []zap.Field{
@@ -173,7 +207,7 @@ func (p *DrandProcess) supervise() {
 
 		select {
 		case <-timeAfter(backoff):
-		case <-p.ctx.Done():
+		case <-p.ctxDone:
 			return
 		}
 
@@ -195,12 +229,17 @@ func (p *DrandProcess) startOnce() error {
 		bin = "drand"
 	}
 
+	controlPort := drandControlPort(p.cfg.ControlListen)
+	if strings.TrimSpace(controlPort) == "" {
+		return errDrandControlListenAddrRequired
+	}
+
 	args := []string{
 		"start",
 		"--folder", p.cfg.DataDir,
 		"--private-listen", p.cfg.PrivateListen,
 		"--public-listen", p.cfg.PublicListen,
-		"--control", p.cfg.ControlListen,
+		"--control", controlPort,
 	}
 	args = append(args, p.cfg.ExtraArgs...)
 
@@ -235,7 +274,7 @@ func (p *DrandProcess) startOnce() error {
 
 	// Ensure the child exits when the sidecar is shutting down.
 	go func() {
-		<-p.ctx.Done()
+		<-p.ctxDone
 		_ = cmd.Process.Signal(syscall.SIGTERM)
 	}()
 
@@ -248,7 +287,7 @@ func (p *DrandProcess) waitCurrent() error {
 	p.mu.Unlock()
 
 	if cmd == nil {
-		return fmt.Errorf("drand process is not started")
+		return errDrandProcessNotStarted
 	}
 
 	err := cmd.Wait()
@@ -263,7 +302,7 @@ func (p *DrandProcess) waitCurrent() error {
 }
 
 func (p *DrandProcess) pipeToLogger(r io.ReadCloser, stream string) {
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
@@ -276,27 +315,41 @@ func (p *DrandProcess) pipeToLogger(r io.ReadCloser, stream string) {
 	}
 }
 
-func normalizeRestartBackoff(min, max time.Duration) (time.Duration, time.Duration, error) {
-	if min <= 0 {
-		min = time.Second
-	}
-	if max <= 0 {
-		max = 30 * time.Second
+func drandControlPort(addr string) string {
+	addr = strings.TrimSpace(addr)
+	if addr == "" {
+		return ""
 	}
 
-	if max < min {
-		return 0, 0, fmt.Errorf("%w: max must be >= min (min=%s max=%s)", errInvalidRestartBackoff, min, max)
+	if host, port, err := net.SplitHostPort(addr); err == nil {
+		_ = host
+		return port
 	}
-	return min, max, nil
+
+	return addr
 }
 
-func nextBackoff(current, max time.Duration) time.Duration {
-	if current >= max {
-		return max
+func normalizeRestartBackoff(minDelay, maxDelay time.Duration) (time.Duration, time.Duration, error) {
+	if minDelay <= 0 {
+		minDelay = time.Second
+	}
+	if maxDelay <= 0 {
+		maxDelay = 30 * time.Second
+	}
+
+	if maxDelay < minDelay {
+		return 0, 0, fmt.Errorf("%w: max must be >= min (min=%s max=%s)", errInvalidRestartBackoff, minDelay, maxDelay)
+	}
+	return minDelay, maxDelay, nil
+}
+
+func nextBackoff(current, maxDelay time.Duration) time.Duration {
+	if current >= maxDelay {
+		return maxDelay
 	}
 	next := current * 2
-	if next > max {
-		return max
+	if next > maxDelay {
+		return maxDelay
 	}
 	return next
 }
@@ -315,30 +368,4 @@ func exitCodeFromWaitErr(err error) (int, bool) {
 	}
 
 	return 0, false
-}
-
-// Stop terminates the supervised drand process and stops further restarts.
-func (p *DrandProcess) Stop() {
-	if p == nil {
-		return
-	}
-
-	p.cancel()
-
-	p.mu.Lock()
-	cmd := p.cmd
-	p.mu.Unlock()
-
-	if cmd != nil && cmd.Process != nil {
-		_ = cmd.Process.Signal(syscall.SIGTERM)
-	}
-
-	select {
-	case <-p.done:
-	case <-time.After(10 * time.Second):
-		if cmd != nil && cmd.Process != nil {
-			_ = cmd.Process.Kill()
-		}
-		<-p.done
-	}
 }

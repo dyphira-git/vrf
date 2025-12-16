@@ -2,6 +2,7 @@ package proposals
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"time"
 
@@ -13,12 +14,14 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 
-	abciCodec "github.com/vexxvakan/vrf/x/vrf/abci/codec"
+	"github.com/vexxvakan/vrf/x/vrf/abci/codec"
 	abcitypes "github.com/vexxvakan/vrf/x/vrf/abci/types"
 	"github.com/vexxvakan/vrf/x/vrf/abci/ve"
 	"github.com/vexxvakan/vrf/x/vrf/emergency"
 	vrfkeeper "github.com/vexxvakan/vrf/x/vrf/keeper"
 )
+
+var errInjectedExtendedCommitInfoTooLarge = errors.New("vrf: injected extended commit info exceeds MaxTxBytes")
 
 // ProposalHandler is responsible for:
 //   - Injecting the previous height's ExtendedCommitInfo into the proposal so
@@ -43,7 +46,7 @@ type ProposalHandler struct {
 	validateVoteExtensionsFn ve.ValidateVoteExtensionsFn
 
 	// codecs
-	extendedCommitCodec abciCodec.ExtendedCommitCodec
+	extendedCommitCodec codec.ExtendedCommitCodec
 
 	// options
 	retainInjectedCommitInfoInWrappedHandler bool
@@ -58,7 +61,7 @@ func NewProposalHandler(
 	signModeHandler *txsigning.HandlerMap,
 	txDecoder sdk.TxDecoder,
 	validateVoteExtensionsFn ve.ValidateVoteExtensionsFn,
-	extendedCommitCodec abciCodec.ExtendedCommitCodec,
+	extendedCommitCodec codec.ExtendedCommitCodec,
 	opts ...Option,
 ) *ProposalHandler {
 	h := &ProposalHandler{
@@ -118,7 +121,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 			if extInfoBzSize <= req.MaxTxBytes {
 				req.MaxTxBytes -= extInfoBzSize
 			} else {
-				err = fmt.Errorf("vrf: injected extended commit info exceeds MaxTxBytes: %d > %d", extInfoBzSize, req.MaxTxBytes)
+				err = fmt.Errorf("%w: %d > %d", errInjectedExtendedCommitInfoTooLarge, extInfoBzSize, req.MaxTxBytes)
 				return &cometabci.ResponsePrepareProposal{Txs: make([][]byte, 0)}, err
 			}
 
@@ -155,8 +158,8 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 		}()
 
 		if req == nil {
-			err = abcitypes.NilRequestError{Handler: abcitypes.ProcessProposal}
-			return nil, err
+			h.logger.Error("vrf: nil RequestProcessProposal; rejecting proposal")
+			return &cometabci.ResponseProcessProposal{Status: cometabci.ResponseProcessProposal_REJECT}, nil
 		}
 
 		// Default: do not require injected data unless vote extensions are enabled
@@ -170,20 +173,20 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 
 		if voteExtensionsEnabled && vrfEnabled && !emergencyDisabled {
 			if len(req.Txs) < abcitypes.NumInjectedTxs {
-				err = abcitypes.MissingCommitInfoError{}
-				return &cometabci.ResponseProcessProposal{Status: cometabci.ResponseProcessProposal_REJECT}, err
+				h.logger.Warn("vrf: missing injected commit info in ProcessProposal; rejecting proposal")
+				return &cometabci.ResponseProcessProposal{Status: cometabci.ResponseProcessProposal_REJECT}, nil
 			}
 
 			extCommitBz := req.Txs[abcitypes.InjectedCommitInfoIndex]
 			extInfo, decErr := h.extendedCommitCodec.Decode(extCommitBz)
 			if decErr != nil {
-				err = abcitypes.CodecError{Err: decErr}
-				return &cometabci.ResponseProcessProposal{Status: cometabci.ResponseProcessProposal_REJECT}, err
+				h.logger.Error("vrf: failed to decode injected commit info in ProcessProposal; rejecting proposal", "err", decErr)
+				return &cometabci.ResponseProcessProposal{Status: cometabci.ResponseProcessProposal_REJECT}, nil
 			}
 
-			if err := h.validateVoteExtensionsFn(ctx, extInfo); err != nil {
-				err = InvalidExtendedCommitInfoError{Err: err}
-				return &cometabci.ResponseProcessProposal{Status: cometabci.ResponseProcessProposal_REJECT}, err
+			if valErr := h.validateVoteExtensionsFn(ctx, extInfo); valErr != nil {
+				h.logger.Warn("vrf: invalid extended commit info in ProcessProposal; rejecting proposal", "err", valErr)
+				return &cometabci.ResponseProcessProposal{Status: cometabci.ResponseProcessProposal_REJECT}, nil
 			}
 
 			abcitypes.RecordMessageSize(abcitypes.MessageExtendedCommit, len(extCommitBz))
@@ -209,10 +212,9 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 	}
 }
 
-func (h *ProposalHandler) injectAndResize(appTxs [][]byte, injectTx []byte, maxSizeBytes int64) [][]byte {
-	//nolint: prealloc
+func (*ProposalHandler) injectAndResize(appTxs [][]byte, injectTx []byte, maxSizeBytes int64) [][]byte {
 	var (
-		returnedTxs   [][]byte
+		returnedTxs   = make([][]byte, 0, len(appTxs)+1)
 		consumedBytes int64
 	)
 
@@ -241,7 +243,7 @@ func (h *ProposalHandler) isVrfEnabled(ctx sdk.Context) bool {
 		return false
 	}
 
-	params, err := h.vrfKeeper.GetParams(ctx.Context())
+	params, err := h.vrfKeeper.GetParams(sdk.WrapSDKContext(ctx))
 	if err != nil {
 		h.logger.Error("vrf: failed to load params in ProcessProposal; treating as disabled", "err", err)
 		return false

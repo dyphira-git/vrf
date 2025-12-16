@@ -309,7 +309,7 @@ docker-push-sidecar: ## Build+push sidecar Docker image (multi-platform)
 		-t $(SIDECAR_IMAGE) \
 		.
 
-docker-up: ## Start Docker Compose stack (chain only)
+docker-up: ## Start Docker Compose stack (chain + sidecar)
 	@CHAIN_IMAGE=$(CHAIN_IMAGE) \
 	SIDECAR_IMAGE=$(SIDECAR_IMAGE) \
 	VERSION=$(VERSION) \
@@ -322,23 +322,15 @@ docker-up: ## Start Docker Compose stack (chain only)
 	DOCKER_SKIP_TIDY=$(DOCKER_SKIP_TIDY) \
 	$(DOCKER_COMPOSE) up -d --build
 
-docker-up-vrf: ## Start Docker Compose stack (chain + sidecar; DRAND_* optional if genesis has x/vrf params)
-	@CHAIN_IMAGE=$(CHAIN_IMAGE) \
-	SIDECAR_IMAGE=$(SIDECAR_IMAGE) \
-	VERSION=$(VERSION) \
-	COMMIT=$(COMMIT) \
-	DOCKER_GO_VERSION=$(DOCKER_GO_VERSION) \
-	DOCKER_ALPINE_VERSION=$(DOCKER_ALPINE_VERSION) \
-	DOCKER_BUILD_TAGS=$(DOCKER_BUILD_TAGS) \
-	DOCKER_LEDGER_ENABLED=$(DOCKER_LEDGER_ENABLED) \
-	DOCKER_LINK_STATICALLY=$(DOCKER_LINK_STATICALLY) \
-	DOCKER_SKIP_TIDY=$(DOCKER_SKIP_TIDY) \
-	$(DOCKER_COMPOSE) --profile vrf up -d --build
+docker-up-vrf: docker-up ## Alias for docker-up (deprecated)
 
-docker-down: ## Stop Docker Compose stack
+docker-stop: ## Stop Docker Compose stack (keeps containers + volumes)
+	@$(DOCKER_COMPOSE) stop
+
+docker-down: ## Remove Docker Compose stack (containers + network)
 	@$(DOCKER_COMPOSE) down
 
-docker-down-clean: ## Stop Docker Compose stack and remove volumes
+docker-down-clean: ## Remove Docker Compose stack and volumes
 	@$(DOCKER_COMPOSE) down -v
 
 ###############################################################################
@@ -428,6 +420,7 @@ format: ## Run gofumpt + goimports
 	docker-push-sidecar \
 	docker-up \
 	docker-up-vrf \
+	docker-stop \
 	docker-down \
 	docker-down-clean \
 	proto-all \

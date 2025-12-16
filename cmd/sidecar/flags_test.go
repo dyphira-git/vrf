@@ -10,13 +10,13 @@ func TestParseFlags_DebugHTTPDisabledByDefault(t *testing.T) {
 		t.Fatalf("parseFlags returned error: %v", err)
 	}
 	if showVersion {
-		t.Fatalf("expected showVersion=false by default")
+		t.Fatal("expected showVersion=false by default")
 	}
 	if cfg.DebugHTTPEnabled {
-		t.Fatalf("expected DebugHTTPEnabled=false by default")
+		t.Fatal("expected DebugHTTPEnabled=false by default")
 	}
 	if cfg.DebugHTTPAddr == "" {
-		t.Fatalf("expected DebugHTTPAddr to have a default value")
+		t.Fatal("expected DebugHTTPAddr to have a default value")
 	}
 	if !isLoopbackAddr(cfg.DebugHTTPAddr) {
 		t.Fatalf("expected default DebugHTTPAddr to be loopback/UDS, got %q", cfg.DebugHTTPAddr)
@@ -48,7 +48,7 @@ func TestValidateBindConfig_DebugHTTPRequiresAllowPublicForNonLoopback(t *testin
 	}
 
 	if err := validateBindConfig(cfg); err == nil {
-		t.Fatalf("expected error for non-loopback debug http bind without AllowPublicBind")
+		t.Fatal("expected error for non-loopback debug http bind without AllowPublicBind")
 	}
 
 	cfg.AllowPublicBind = true
@@ -102,7 +102,7 @@ func TestParseFlags_GRPCServerConfigIsParsed(t *testing.T) {
 		t.Fatalf("expected KeepaliveMinTime=15s, got %v", cfg.GRPC.KeepaliveMinTime)
 	}
 	if !cfg.GRPC.KeepalivePermitWithoutStream {
-		t.Fatalf("expected KeepalivePermitWithoutStream=true")
+		t.Fatal("expected KeepalivePermitWithoutStream=true")
 	}
 	if cfg.GRPC.MaxConnectionIdle.String() != "1m0s" {
 		t.Fatalf("expected MaxConnectionIdle=1m0s, got %v", cfg.GRPC.MaxConnectionIdle)
@@ -135,6 +135,6 @@ func TestParseFlags_GRPCMaxConcurrentStreamsMustFitUint32(t *testing.T) {
 		"--grpc-max-concurrent-streams=4294967296",
 	})
 	if err == nil {
-		t.Fatalf("expected error when --grpc-max-concurrent-streams exceeds uint32 range")
+		t.Fatal("expected error when --grpc-max-concurrent-streams exceeds uint32 range")
 	}
 }

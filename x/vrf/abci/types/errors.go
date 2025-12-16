@@ -13,7 +13,7 @@ func (e NilRequestError) Error() string {
 	return fmt.Sprintf("nil request for %s", e.Handler)
 }
 
-func (e NilRequestError) Label() string {
+func (NilRequestError) Label() string {
 	return "NilRequestError"
 }
 
@@ -28,7 +28,7 @@ func (e WrappedHandlerError) Error() string {
 	return fmt.Sprintf("wrapped %s failed: %s", e.Handler, e.Err.Error())
 }
 
-func (e WrappedHandlerError) Label() string {
+func (WrappedHandlerError) Label() string {
 	return "WrappedHandlerError"
 }
 
@@ -41,7 +41,7 @@ func (e CodecError) Error() string {
 	return fmt.Sprintf("codec error: %s", e.Err.Error())
 }
 
-func (e CodecError) Label() string {
+func (CodecError) Label() string {
 	return "CodecError"
 }
 
@@ -49,10 +49,10 @@ func (e CodecError) Label() string {
 // height.
 type MissingCommitInfoError struct{}
 
-func (e MissingCommitInfoError) Error() string {
+func (MissingCommitInfoError) Error() string {
 	return "missing commit info"
 }
 
-func (e MissingCommitInfoError) Label() string {
+func (MissingCommitInfoError) Label() string {
 	return "MissingCommitInfoError"
 }

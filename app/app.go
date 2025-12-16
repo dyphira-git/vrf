@@ -193,7 +193,7 @@ func New(
 	}
 
 	app.configurator = module.NewConfigurator(appCodec, app.MsgServiceRouter(), app.GRPCQueryRouter())
-	app.ModuleManager = module.NewManager(appModules(app, txConfig, appCodec)...)
+	app.ModuleManager = module.NewManagerFromMap(appModules(app, txConfig, appCodec))
 	app.BasicModuleManager = module.NewBasicManagerFromManager(
 		app.ModuleManager,
 		map[string]module.AppModuleBasic{
@@ -472,8 +472,24 @@ func (app *App) RegisterNodeService(clientCtx client.Context, cfg config.Config)
 }
 
 // SimulationManager implements the SimulationApp interface
-func (app *App) SimulationManager() *module.SimulationManager {
+func (*App) SimulationManager() *module.SimulationManager {
 	return nil
+}
+
+func (app *App) Close() error {
+	var errs []error
+
+	if app.vrfClient != nil {
+		if err := app.vrfClient.Stop(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	if err := app.BaseApp.Close(); err != nil {
+		errs = append(errs, err)
+	}
+
+	return errors.Join(errs...)
 }
 
 // configure store loader that checks if version == upgradeHeight and applies store upgrades
@@ -508,20 +524,4 @@ func (app *App) setupUpgradeHandlers() {
 			),
 		)
 	}
-}
-
-func (app *App) Close() error {
-	var errs []error
-
-	if app.vrfClient != nil {
-		if err := app.vrfClient.Stop(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-
-	if err := app.BaseApp.Close(); err != nil {
-		errs = append(errs, err)
-	}
-
-	return errors.Join(errs...)
 }

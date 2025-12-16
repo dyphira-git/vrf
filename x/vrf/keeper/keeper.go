@@ -2,7 +2,7 @@ package keeper
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	"cosmossdk.io/collections"
 	"cosmossdk.io/core/store"
@@ -11,6 +11,8 @@ import (
 
 	"github.com/vexxvakan/vrf/x/vrf/types"
 )
+
+var errCannotRemoveModuleAuthority = errors.New("vrf: cannot remove module authority from committee")
 
 type Keeper struct {
 	storeService store.KVStoreService
@@ -100,7 +102,7 @@ func (k Keeper) SetCommitteeMember(ctx context.Context, addr string, label strin
 // authority can never be removed.
 func (k Keeper) RemoveCommitteeMember(ctx context.Context, addr string) error {
 	if addr == k.authority {
-		return fmt.Errorf("vrf: cannot remove module authority from committee")
+		return errCannotRemoveModuleAuthority
 	}
 	return k.committee.Remove(ctx, addr)
 }

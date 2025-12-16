@@ -12,6 +12,6 @@ func (e InvalidExtendedCommitInfoError) Error() string {
 	return fmt.Sprintf("invalid extended commit info: %v", e.Err)
 }
 
-func (e InvalidExtendedCommitInfoError) Label() string {
+func (InvalidExtendedCommitInfoError) Label() string {
 	return "InvalidExtendedCommitInfoError"
 }

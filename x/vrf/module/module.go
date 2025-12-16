@@ -38,25 +38,25 @@ type AppModuleBasic struct {
 	cdc codec.Codec
 }
 
-func (amb AppModuleBasic) Name() string { return types.ModuleName }
+func (AppModuleBasic) Name() string { return types.ModuleName }
 
-func (amb AppModuleBasic) RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
+func (AppModuleBasic) RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
 	types.RegisterLegacyAminoCodec(cdc)
 }
 
-func (amb AppModuleBasic) RegisterInterfaces(registry codectypes.InterfaceRegistry) {
+func (AppModuleBasic) RegisterInterfaces(registry codectypes.InterfaceRegistry) {
 	types.RegisterInterfaces(registry)
 }
 
-func (amb AppModuleBasic) RegisterGRPCGatewayRoutes(clientCtx client.Context, mux *runtime.ServeMux) {
+func (AppModuleBasic) RegisterGRPCGatewayRoutes(clientCtx client.Context, mux *runtime.ServeMux) {
 	if err := types.RegisterQueryHandlerClient(context.Background(), mux, types.NewQueryClient(clientCtx)); err != nil {
 		panic(err)
 	}
 }
 
-func (amb AppModuleBasic) GetTxCmd() *cobra.Command { return nil }
+func (AppModuleBasic) GetTxCmd() *cobra.Command { return nil }
 
-func (amb AppModuleBasic) GetQueryCmd() *cobra.Command { return nil }
+func (AppModuleBasic) GetQueryCmd() *cobra.Command { return nil }
 
 type AppModule struct {
 	AppModuleBasic
@@ -71,9 +71,9 @@ func NewAppModule(cdc codec.Codec, k keeper.Keeper) AppModule {
 	}
 }
 
-func (am AppModule) IsAppModule() {}
+func (AppModule) IsAppModule() {}
 
-func (am AppModule) IsOnePerModuleType() {}
+func (AppModule) IsOnePerModuleType() {}
 
 func (AppModule) ConsensusVersion() uint64 { return ConsensusVersion }
 
@@ -94,8 +94,6 @@ func (AppModuleBasic) ValidateGenesis(cdc codec.JSONCodec, _ client.TxEncodingCo
 
 	return gs.Validate()
 }
-
-func (AppModule) RegisterInvariants(_ sdk.InvariantRegistry) {}
 
 func (am AppModule) InitGenesis(ctx sdk.Context, cdc codec.JSONCodec, bz json.RawMessage) {
 	var gs types.GenesisState

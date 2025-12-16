@@ -55,7 +55,6 @@ message VrfParams {
   // reshare_epoch is the on-chain resharing signal / epoch counter.
   uint64 reshare_epoch = 7;
 
-  // slashing_grace_blocks configures the slashing grace window, as described
-  // in the PRD.
+  // slashing_grace_blocks configures the slashing grace window.
   uint64 slashing_grace_blocks = 8;
 }

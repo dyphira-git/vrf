@@ -10,4 +10,3 @@ The sidecar gRPC server (`--listen-addr`) is loopback/UDS-only by default. If yo
 - `--grpc-keepalive-min-time=1m` (clients pinging more frequently are disconnected)
 
 All `--grpc-*` flags default to `0`/`false`, which leaves gRPC's built-in defaults unchanged (or uses “infinity” for max-connection age knobs).
-

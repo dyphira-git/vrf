@@ -9,6 +9,7 @@ ARG ALPINE_VERSION="3.22"
 ARG VERSION="dev"
 ARG COMMIT=""
 ARG BUILD_TAGS="muslc"
+ARG DRAND_CONN_INSECURE="false"
 ARG LEDGER_ENABLED="false"
 ARG LINK_STATICALLY="true"
 ARG SKIP_TIDY="true"
@@ -22,6 +23,7 @@ ARG GO_VERSION
 ARG VERSION
 ARG COMMIT
 ARG BUILD_TAGS
+ARG DRAND_CONN_INSECURE
 ARG LEDGER_ENABLED
 ARG LINK_STATICALLY
 ARG SKIP_TIDY
@@ -57,7 +59,9 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     && (file /vrf/bin/sidecar | grep "statically linked") \
     && DRAND_VERSION="$(go list -m -f '{{.Version}}' github.com/drand/drand/v2)" \
     && echo "Installing drand ${DRAND_VERSION} ..." \
-    && CGO_ENABLED=0 GOBIN=/vrf/bin go install -trimpath -tags "netgo ${BUILD_TAGS}" -ldflags "-s -w" github.com/drand/drand/v2/cmd/drand@${DRAND_VERSION} \
+    && DRAND_TAGS="netgo ${BUILD_TAGS}" \
+    && if [ "${DRAND_CONN_INSECURE}" = "true" ]; then DRAND_TAGS="${DRAND_TAGS} conn_insecure"; fi \
+    && CGO_ENABLED=0 GOBIN=/vrf/bin go install -trimpath -tags "${DRAND_TAGS}" -ldflags "-s -w" github.com/drand/drand/v2/cmd/drand@${DRAND_VERSION} \
     && /vrf/bin/drand --version >/dev/null
 
 # --------------------------------------------------------

@@ -12,41 +12,43 @@ func (k Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState) {
 		panic(err)
 	}
 
-	if err := k.SetParams(ctx.Context(), gs.Params); err != nil {
+	storeCtx := sdk.WrapSDKContext(ctx)
+
+	if err := k.SetParams(storeCtx, gs.Params); err != nil {
 		panic(err)
 	}
 
 	if gs.LatestBeacon != nil {
-		if err := k.SetLatestBeacon(ctx.Context(), *gs.LatestBeacon); err != nil {
+		if err := k.SetLatestBeacon(storeCtx, *gs.LatestBeacon); err != nil {
 			panic(err)
 		}
 	}
 
 	for _, e := range gs.Committee {
-		if err := k.SetCommitteeMember(ctx.Context(), e.Address, e.Label); err != nil {
+		if err := k.SetCommitteeMember(storeCtx, e.Address, e.Label); err != nil {
 			panic(err)
 		}
 	}
 
 	// Ensure the module authority is always a committee member by default.
-	if hasAuthority, err := k.committee.Has(ctx.Context(), k.GetAuthority()); err == nil && !hasAuthority {
-		_ = k.SetCommitteeMember(ctx.Context(), k.GetAuthority(), "module_authority")
+	if hasAuthority, err := k.committee.Has(storeCtx, k.GetAuthority()); err == nil && !hasAuthority {
+		_ = k.SetCommitteeMember(storeCtx, k.GetAuthority(), "module_authority")
 	}
 
 	for _, i := range gs.Identities {
-		if err := k.SetVrfIdentity(ctx.Context(), i); err != nil {
+		if err := k.SetVrfIdentity(storeCtx, i); err != nil {
 			panic(err)
 		}
 	}
 
 	// Initialize last block time to the current block time so that ExtendVote can derive
 	// Tref for the next height.
-	_ = k.SetLastBlockTime(ctx.Context(), ctx.BlockTime().Unix())
+	_ = k.SetLastBlockTime(storeCtx, ctx.BlockTime().Unix())
 }
 
 // ExportGenesis exports the vrf module's state.
 func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
-	storeCtx := ctx.Context()
+	storeCtx := sdk.WrapSDKContext(ctx)
 
 	params, err := k.GetParams(storeCtx)
 	if err != nil {

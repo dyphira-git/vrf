@@ -1,7 +1,7 @@
 package ante
 
 import (
-	"fmt"
+	"errors"
 
 	txsigning "cosmossdk.io/x/tx/signing"
 
@@ -11,6 +11,8 @@ import (
 	"github.com/vexxvakan/vrf/x/vrf/emergency"
 	vrfkeeper "github.com/vexxvakan/vrf/x/vrf/keeper"
 )
+
+var errUnauthorizedMsgVrfEmergencyDisable = errors.New("vrf: unauthorized MsgVrfEmergencyDisable")
 
 // EmergencyDisableDecorator is an AnteDecorator that recognizes
 // MsgVrfEmergencyDisable transactions, verifies their signatures and
@@ -76,7 +78,7 @@ func (d EmergencyDisableDecorator) AnteHandle(
 	}
 
 	if !authorized {
-		return ctx, fmt.Errorf("vrf: unauthorized MsgVrfEmergencyDisable")
+		return ctx, errUnauthorizedMsgVrfEmergencyDisable
 	}
 
 	// Transaction contains an authorized MsgVrfEmergencyDisable. The PRD
