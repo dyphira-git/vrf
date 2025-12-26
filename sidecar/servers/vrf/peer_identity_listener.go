@@ -5,6 +5,8 @@ import (
 	"syscall"
 
 	"go.uber.org/zap"
+
+	scerror "github.com/vexxvakan/vrf/sidecar/errors"
 )
 
 type peerIdentityAddr struct {
@@ -34,7 +36,7 @@ func (c *peerIdentityConn) RemoteAddr() net.Addr { return c.remote }
 func (c *peerIdentityConn) SyscallConn() (syscall.RawConn, error) {
 	sysConn, ok := c.Conn.(syscall.Conn)
 	if !ok {
-		return nil, errConnNoRawFD
+		return nil, scerror.ErrConnNoRawFD
 	}
 	return sysConn.SyscallConn()
 }
@@ -86,12 +88,12 @@ func withPerClientUDSPeerIdentity(ln net.Listener, logger *zap.Logger) net.Liste
 
 func udsPeerToken(conn net.Conn) (string, error) {
 	if conn == nil {
-		return "", errNilConn
+		return "", scerror.ErrNilConn
 	}
 
 	sysConn, ok := conn.(syscall.Conn)
 	if !ok {
-		return "", errConnNoRawFD
+		return "", scerror.ErrConnNoRawFD
 	}
 
 	rawConn, err := sysConn.SyscallConn()

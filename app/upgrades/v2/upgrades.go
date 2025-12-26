@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"cosmossdk.io/log"
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
 	"github.com/vexxvakan/vrf/app/keepers"
@@ -18,8 +18,11 @@ func CreateV2UpgradeHandler(
 	_ *keepers.AppKeepers,
 ) upgradetypes.UpgradeHandler {
 	return func(ctx context.Context, _ upgradetypes.Plan, vm module.VersionMap) (module.VersionMap, error) {
-		sdkCtx := sdk.UnwrapSDKContext(ctx)
-		logger := sdkCtx.Logger().With("upgrade", UpgradeName)
+		logger := log.NewNopLogger()
+		if lc, ok := ctx.(interface{ Logger() log.Logger }); ok {
+			logger = lc.Logger()
+		}
+		logger = logger.With("upgrade", UpgradeName)
 
 		// Run migrations
 		logger.Info(fmt.Sprintf("v2: running migrations for: %v", vm))

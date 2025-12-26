@@ -1,6 +1,7 @@
 package vrf
 
 import (
+	"errors"
 	"time"
 
 	"google.golang.org/grpc"
@@ -11,6 +12,17 @@ const (
 	defaultGRPCKeepaliveTime    = 2 * time.Hour
 	defaultGRPCKeepaliveTimeout = 20 * time.Second
 	defaultGRPCKeepaliveMinTime = 5 * time.Minute
+)
+
+var (
+	errGRPCMaxConnectionIdleNegative     = errors.New("grpc max connection idle must be >= 0")
+	errGRPCMaxConnectionAgeNegative      = errors.New("grpc max connection age must be >= 0")
+	errGRPCMaxConnectionAgeGraceNegative = errors.New("grpc max connection age grace must be >= 0")
+	errGRPCKeepaliveTimeNegative         = errors.New("grpc keepalive time must be >= 0")
+	errGRPCKeepaliveTimeoutNegative      = errors.New("grpc keepalive timeout must be >= 0")
+	errGRPCKeepaliveMinTimeNegative      = errors.New("grpc keepalive min time must be >= 0")
+	errGRPCMaxRecvMsgSizeNegative        = errors.New("grpc max recv msg size must be >= 0")
+	errGRPCMaxSendMsgSizeNegative        = errors.New("grpc max send msg size must be >= 0")
 )
 
 // GRPCServerConfig configures production-oriented hardening knobs for the sidecar's gRPC server.

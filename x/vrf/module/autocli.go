@@ -48,6 +48,11 @@ func (AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					Short:     "Submit a VRF emergency disable request",
 				},
 				{
+					RpcMethod: "InitialDkg",
+					Use:       "initial-dkg",
+					Short:     "Set initial drand chain-info for VRF bootstrap",
+				},
+				{
 					RpcMethod: "RegisterVrfIdentity",
 					Use:       "register-identity",
 					Short:     "Register the operator's drand BLS public key",

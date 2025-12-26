@@ -22,7 +22,7 @@ Because `PreBlock` runs during `FinalizeBlock` and must deterministically update
 3. Queries `sidecar` for `Randomness(round = targetRound)` and encodes it as `VrfVoteExtension`.
 4. Returns the encoded bytes to CometBFT for broadcast.
 
-To preserve liveness, failures to contact `sidecar` (timeouts, errors, nil responses) result in an empty vote extension.
+When `VrfParams.enabled == true`, **empty vote extensions are rejected** in `VerifyVoteExtension`. If a validator cannot reach its `sidecar`, its votes will not count; the chain will halt once >1/3 of voting power cannot provide beacons.
 
 ## VerifyVoteExtension
 

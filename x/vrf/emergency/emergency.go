@@ -84,13 +84,12 @@ func VerifyEmergencyMsg(
 
 	// Check allowlist: for each MsgVrfEmergencyDisable, ensure that the signer is
 	// present in x/vrf's committee allowlist.
-	storeCtx := sdk.WrapSDKContext(ctx)
 	for _, m := range emergencyMsgs {
 		if err := m.ValidateBasic(); err != nil {
 			return true, false, "", err
 		}
 
-		ok, err := vk.IsCommitteeMember(storeCtx, m.Authority)
+		ok, err := vk.IsCommitteeMember(ctx, m.Authority)
 		if err != nil {
 			return true, false, "", err
 		}
@@ -139,12 +138,10 @@ func verifySignatures(
 	txData := adaptableTx.GetSigningTxData()
 
 	chainID := ctx.ChainID()
-	storeCtx := sdk.WrapSDKContext(ctx)
-
 	for i, sig := range sigs {
 		addr := sdk.AccAddress(signers[i])
 
-		acc := ak.GetAccount(storeCtx, addr)
+		acc := ak.GetAccount(ctx, addr)
 		if acc == nil {
 			return fmt.Errorf("%w: %s", errSignerAccountNotFound, addr.String())
 		}

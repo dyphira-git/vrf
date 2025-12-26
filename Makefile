@@ -156,63 +156,39 @@ help: ## Show this help
 ###############################################################################
 
 verify:
-	@echo "🔎 Verifying Dependencies ..."
+	@echo "Verifying Dependencies ..."
 	@$(GO) mod verify > /dev/null 2>&1
-	@echo "✅ Verified dependencies successfully!"
+	@echo "Verified dependencies successfully."
 
 go-cache: verify
-	@echo "📥 Downloading and caching dependencies..."
+	@echo "Downloading and caching dependencies..."
 	@$(GO) mod download
-	@echo "✅ Downloaded and cached dependencies successfully!"
+	@echo "Downloaded and cached dependencies successfully."
 
-install: $(TIDY_DEPS) go-cache install-chain install-sidecar ## Install chaind + sidecar into GOBIN
+install: $(TIDY_DEPS) go-cache install-chain install-sidecar
 
 install-chain:
-	@echo "🔄 Installing $(CHAIN_BINARY)..."
+	@echo "Installing $(CHAIN_BINARY)..."
 	@$(GO_ENV_TEST) $(GO) install -mod=readonly $(BUILD_FLAGS) $(CHAIN_PKG)
 
 install-sidecar:
-	@echo "🔄 Installing $(SIDECAR_BINARY)..."
+	@echo "Installing $(SIDECAR_BINARY)..."
 	@$(GO_ENV_TEST) $(GO) install -mod=readonly $(SIDECAR_BUILD_FLAGS) $(SIDECAR_PKG)
 
 build: $(TIDY_DEPS) go-cache build-chain build-sidecar ## Build chaind + sidecar into ./bin
 
 build-chain:
 	@mkdir -p $(BIN_DIR)
-	@echo "🔄 Building $(CHAIN_OUT)..."
+	@echo "Building $(CHAIN_OUT)..."
 	@$(GO_ENV_BUILD) $(GO) build -mod=readonly $(BUILD_FLAGS) -o $(CHAIN_OUT) $(CHAIN_PKG)
 
 build-sidecar:
 	@mkdir -p $(BIN_DIR)
-	@echo "🔄 Building $(SIDECAR_OUT)..."
+	@echo "Building $(SIDECAR_OUT)..."
 	@$(GO_ENV_BUILD) $(GO) build -mod=readonly $(SIDECAR_BUILD_FLAGS) -o $(SIDECAR_OUT) $(SIDECAR_PKG)
 
 clean: ## Remove build artifacts
 	@rm -rf $(BIN_DIR)
-
-print-build-info: ## Print computed build metadata
-	@echo "Binary: $(CHAIN_BINARY)$(EXE_EXT)"
-	@echo "Version: $(VERSION)"
-	@echo "Commit: $(COMMIT)"
-	@echo "Build tags: $(build_tags)"
-	@echo "Cosmos SDK: $(COSMOS_SDK_VERSION)"
-	@echo "CometBFT: $(CMT_VERSION)"
-
-build-summary:
-	@echo ""
-	@echo "======= Build Summary ======="
-	@echo "$(CHAIN_BINARY): $(VERSION)"
-	@echo "Cosmos SDK: $(COSMOS_SDK_VERSION)"
-	@echo "Comet: $(CMT_VERSION)"
-	@echo "============================="
-
-install-summary:
-	@echo ""
-	@echo "====== Install Summary ======"
-	@echo "$(CHAIN_BINARY): $(VERSION)"
-	@echo "Cosmos SDK: $(COSMOS_SDK_VERSION)"
-	@echo "Comet: $(CMT_VERSION)"
-	@echo "============================="
 
 init: build-chain ## Initialize a local single-node devnet (destructive)
 	@BINARY=$(CHAIN_OUT) RESET_CHAIN=true sh scripts/init.sh chain
@@ -222,7 +198,10 @@ init: build-chain ## Initialize a local single-node devnet (destructive)
 ###############################################################################
 
 DOCKER ?= docker
-DOCKER_COMPOSE ?= $(DOCKER) compose
+DEV_COMPOSE_FILE ?= contrib/dev.compose.yaml
+DEMO_COMPOSE_FILE ?= contrib/demo.compose.yaml
+DOCKER_COMPOSE_FILE ?= $(DEV_COMPOSE_FILE)
+DOCKER_COMPOSE ?= $(DOCKER) compose -f $(DOCKER_COMPOSE_FILE)
 DOCKER_BUILDX ?= $(DOCKER) buildx
 
 DOCKER_BUILDER ?=
@@ -246,8 +225,11 @@ SIDECAR_IMAGE_REPO ?= $(IMAGE_BASE)-sidecar
 
 CHAIN_IMAGE ?= $(CHAIN_IMAGE_REPO):$(IMAGE_TAG)
 SIDECAR_IMAGE ?= $(SIDECAR_IMAGE_REPO):$(IMAGE_TAG)
+DEMO_CHAIN_IMAGE ?= $(CHAIN_IMAGE_REPO):local
+DEMO_SIDECAR_IMAGE ?= $(SIDECAR_IMAGE_REPO):local
 
 DOCKER_BUILD_TAGS ?= muslc
+DRAND_CONN_INSECURE ?= false
 DOCKER_LEDGER_ENABLED ?= false
 DOCKER_LINK_STATICALLY ?= true
 DOCKER_SKIP_TIDY ?= true
@@ -261,11 +243,15 @@ DOCKER_BUILD_ARGS := \
 	--build-arg VERSION=$(VERSION) \
 	--build-arg COMMIT=$(COMMIT) \
 	--build-arg BUILD_TAGS=$(DOCKER_BUILD_TAGS) \
+	--build-arg DRAND_CONN_INSECURE=$(DRAND_CONN_INSECURE) \
 	--build-arg LEDGER_ENABLED=$(DOCKER_LEDGER_ENABLED) \
 	--build-arg LINK_STATICALLY=$(DOCKER_LINK_STATICALLY) \
 	--build-arg SKIP_TIDY=$(DOCKER_SKIP_TIDY)
 
 docker-build: docker-build-chain docker-build-sidecar ## Build Docker images (local platform)
+
+docker-build-local: ## Build Docker images tagged "local" (uses cache, insecure drand peer connections)
+	@$(MAKE) IMAGE_TAG=local DRAND_CONN_INSECURE=true docker-build
 
 docker-build-chain: ## Build chain Docker image (local platform)
 	@$(DOCKER_BUILDX) build \
@@ -287,28 +273,6 @@ docker-build-sidecar: ## Build sidecar Docker image (local platform)
 		-t $(SIDECAR_IMAGE) \
 		.
 
-docker-push: docker-push-chain docker-push-sidecar ## Build+push Docker images (multi-platform)
-
-docker-push-chain: ## Build+push chain Docker image (multi-platform)
-	@$(DOCKER_BUILDX) build \
-		$(DOCKER_BUILDER_FLAG) \
-		--push \
-		--platform $(DOCKER_PLATFORMS) \
-		$(DOCKER_BUILD_ARGS) \
-		-f contrib/images/chain.Dockerfile \
-		-t $(CHAIN_IMAGE) \
-		.
-
-docker-push-sidecar: ## Build+push sidecar Docker image (multi-platform)
-	@$(DOCKER_BUILDX) build \
-		$(DOCKER_BUILDER_FLAG) \
-		--push \
-		--platform $(DOCKER_PLATFORMS) \
-		$(DOCKER_BUILD_ARGS) \
-		-f contrib/images/sidecar.Dockerfile \
-		-t $(SIDECAR_IMAGE) \
-		.
-
 docker-up: ## Start Docker Compose stack (chain + sidecar)
 	@CHAIN_IMAGE=$(CHAIN_IMAGE) \
 	SIDECAR_IMAGE=$(SIDECAR_IMAGE) \
@@ -322,7 +286,12 @@ docker-up: ## Start Docker Compose stack (chain + sidecar)
 	DOCKER_SKIP_TIDY=$(DOCKER_SKIP_TIDY) \
 	$(DOCKER_COMPOSE) up -d --build
 
-docker-up-vrf: docker-up ## Alias for docker-up (deprecated)
+demo: ## Start Docker Compose demo stack (2-node chain + sidecars + supervised drand)
+	@CHAIN_IMAGE=$(DEMO_CHAIN_IMAGE) \
+	SIDECAR_IMAGE=$(DEMO_SIDECAR_IMAGE) \
+	COMPOSE_FILE=$(DEMO_COMPOSE_FILE) \
+	RESET=true \
+	sh ./scripts/demo.sh
 
 docker-stop: ## Stop Docker Compose stack (keeps containers + volumes)
 	@$(DOCKER_COMPOSE) stop
@@ -374,8 +343,19 @@ proto-breaking: ## Check protobuf breaking changes against main
 ### Tests
 ###############################################################################
 
-test: $(TIDY_DEPS) ## Run unit tests
-	@$(GO_ENV_TEST) $(GO) test $(TEST_FLAGS) ./...
+rm-testcache:
+	go clean -testcache
+
+e2e: IMAGE_TAG=local
+e2e: docker-build rm-testcache
+	@VRF_CHAIN_IMAGE=$(CHAIN_IMAGE_REPO) \
+	VRF_CHAIN_TAG=local \
+	VRF_SIDECAR_IMAGE=$(SIDECAR_IMAGE_REPO) \
+	VRF_SIDECAR_TAG=local \
+	cd e2e && go test -race -v -run TestVRFEndToEnd .
+
+unit: ## Run unit tests (no e2e)
+	@$(GO_ENV_TEST) $(GO) test $(TEST_FLAGS) ./x/vrf/...
 
 ###############################################################################
 ### Tooling
@@ -408,18 +388,12 @@ format: ## Run gofumpt + goimports
 	install-chain \
 	install-sidecar \
 	clean \
-	print-build-info \
-	build-summary \
-	install-summary \
 	init \
 	docker-build \
 	docker-build-chain \
 	docker-build-sidecar \
-	docker-push \
-	docker-push-chain \
-	docker-push-sidecar \
 	docker-up \
-	docker-up-vrf \
+	demo \
 	docker-stop \
 	docker-down \
 	docker-down-clean \
@@ -433,7 +407,9 @@ format: ## Run gofumpt + goimports
 	proto-format-check \
 	proto-lint \
 	proto-breaking \
-	test \
+	e2e \
+	rm-testcache \
+	unit \
 	lint \
 	lint-fix \
 	format

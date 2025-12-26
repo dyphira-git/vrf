@@ -14,7 +14,7 @@ import (
 
 	"cosmossdk.io/log"
 
-	vrftypes "github.com/vexxvakan/vrf/sidecar/servers/vrf/types"
+	sidecarv1 "github.com/vexxvakan/vrf/api/vexxvakan/sidecar/v1"
 )
 
 var _ Client = (*GRPCClient)(nil)
@@ -31,7 +31,7 @@ type GRPCClient struct {
 
 	addr    string
 	conn    *grpc.ClientConn
-	client  vrftypes.VrfClient
+	client  sidecarv1.VrfClient
 	timeout time.Duration
 }
 
@@ -62,8 +62,8 @@ func (c *GRPCClient) Start(_ context.Context) error {
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 
-	if strings.HasPrefix(c.addr, "unix://") {
-		path := strings.TrimPrefix(c.addr, "unix://")
+	if after, ok := strings.CutPrefix(c.addr, "unix://"); ok {
+		path := after
 		opts = append(opts, grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
 			var d net.Dialer
 			return d.DialContext(ctx, "unix", path)
@@ -78,7 +78,7 @@ func (c *GRPCClient) Start(_ context.Context) error {
 
 	c.mutex.Lock()
 	c.conn = conn
-	c.client = vrftypes.NewVrfClient(conn)
+	c.client = sidecarv1.NewVrfClient(conn)
 	c.mutex.Unlock()
 
 	c.logger.Info("vrf sidecar client started")
@@ -104,9 +104,9 @@ func (c *GRPCClient) Stop() error {
 
 func (c *GRPCClient) Randomness(
 	ctx context.Context,
-	req *vrftypes.QueryRandomnessRequest,
+	req *sidecarv1.QueryRandomnessRequest,
 	opts ...grpc.CallOption,
-) (*vrftypes.QueryRandomnessResponse, error) {
+) (*sidecarv1.QueryRandomnessResponse, error) {
 	c.mutex.Lock()
 	cl := c.client
 	c.mutex.Unlock()
@@ -123,9 +123,9 @@ func (c *GRPCClient) Randomness(
 
 func (c *GRPCClient) Info(
 	ctx context.Context,
-	req *vrftypes.QueryInfoRequest,
+	req *sidecarv1.QueryInfoRequest,
 	opts ...grpc.CallOption,
-) (*vrftypes.QueryInfoResponse, error) {
+) (*sidecarv1.QueryInfoResponse, error) {
 	c.mutex.Lock()
 	cl := c.client
 	c.mutex.Unlock()

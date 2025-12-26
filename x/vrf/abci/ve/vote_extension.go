@@ -14,7 +14,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	vrfservertypes "github.com/vexxvakan/vrf/sidecar/servers/vrf/types"
+	sidecarv1 "github.com/vexxvakan/vrf/api/vexxvakan/sidecar/v1"
 	vetypes "github.com/vexxvakan/vrf/x/vrf/abci/ve/types"
 	vrfkeeper "github.com/vexxvakan/vrf/x/vrf/keeper"
 	vrfclient "github.com/vexxvakan/vrf/x/vrf/sidecar"
@@ -74,41 +74,50 @@ func (h *Handler) ExtendVoteHandler() sdk.ExtendVoteHandler {
 			return &cometabci.ResponseExtendVote{VoteExtension: nil}, nil
 		}
 
-		storeCtx := sdk.WrapSDKContext(ctx)
-
-		params, err := h.keeper.GetParams(storeCtx)
+		params, err := h.keeper.GetParams(ctx)
 		if err != nil {
 			h.logger.Error("vrf: failed to load params; returning empty extension", "err", err)
 			return &cometabci.ResponseExtendVote{VoteExtension: nil}, nil
 		}
 
 		if !params.Enabled {
+			h.logger.Info("vrf: params.disabled=true; returning empty extension", "height", req.Height)
 			return &cometabci.ResponseExtendVote{VoteExtension: nil}, nil
 		}
 
-		lastTS, err := h.keeper.GetLastBlockTime(storeCtx)
-		if err != nil {
-			h.logger.Error("vrf: failed to load last block time; returning empty extension", "err", err)
-			return &cometabci.ResponseExtendVote{VoteExtension: nil}, nil
+		tref := ctx.BlockTime().UTC()
+		if tref.IsZero() {
+			lastTS, err := h.keeper.GetLastBlockTime(ctx)
+			if err != nil {
+				h.logger.Error("vrf: failed to load last block time; returning empty extension", "err", err)
+				return &cometabci.ResponseExtendVote{VoteExtension: nil}, nil
+			}
+			tref = time.Unix(lastTS, 0).UTC()
 		}
-
-		tref := time.Unix(lastTS, 0).UTC()
 		teff := tref.Add(-time.Duration(params.SafetyMarginSeconds) * time.Second)
 		targetRound := vrftypes.RoundAt(params, teff)
 		if targetRound == 0 {
+			h.logger.Info(
+				"vrf: target round unavailable; returning empty extension",
+				"height", req.Height,
+				"block_time_unix", tref.Unix(),
+				"genesis_unix_sec", params.GenesisUnixSec,
+				"period_seconds", params.PeriodSeconds,
+				"safety_margin_seconds", params.SafetyMarginSeconds,
+			)
 			return &cometabci.ResponseExtendVote{VoteExtension: nil}, nil
 		}
 
 		// Call the sidecar for the specific round.
-		reqCtx, cancel := context.WithTimeout(storeCtx, h.timeout)
+		reqCtx, cancel := context.WithTimeout(ctx, h.timeout)
 		defer cancel()
 
 		res, err := h.client.Randomness(
 			ctx.WithContext(reqCtx),
-			&vrfservertypes.QueryRandomnessRequest{Round: targetRound},
+			&sidecarv1.QueryRandomnessRequest{Round: targetRound},
 		)
 		if err != nil || res == nil {
-			h.logger.Warn("vrf: failed to fetch randomness; returning empty extension",
+			h.logger.Warn("vrf: failed to fetch randomness; returning empty vote extension",
 				"height", req.Height,
 				"round", targetRound,
 				"err", err,
@@ -135,7 +144,7 @@ func (h *Handler) ExtendVoteHandler() sdk.ExtendVoteHandler {
 }
 
 // VerifyVoteExtensionHandler implements the deterministic checks:
-// empty acceptance, basic field checks, chain hash match, and the
+// empty/disabled handling, basic field checks, chain hash match, and the
 // cheap SHA256(signature) == randomness filter.
 func (h *Handler) VerifyVoteExtensionHandler() sdk.VerifyVoteExtensionHandler {
 	return func(ctx sdk.Context, req *cometabci.RequestVerifyVoteExtension) (*cometabci.ResponseVerifyVoteExtension, error) {
@@ -144,17 +153,22 @@ func (h *Handler) VerifyVoteExtensionHandler() sdk.VerifyVoteExtensionHandler {
 			return &cometabci.ResponseVerifyVoteExtension{Status: cometabci.ResponseVerifyVoteExtension_REJECT}, nil
 		}
 
-		// Accept empty vote extensions by default.
-		if len(req.VoteExtension) == 0 {
-			return &cometabci.ResponseVerifyVoteExtension{Status: cometabci.ResponseVerifyVoteExtension_ACCEPT}, nil
-		}
-
-		storeCtx := sdk.WrapSDKContext(ctx)
-
-		params, err := h.keeper.GetParams(storeCtx)
+		params, err := h.keeper.GetParams(ctx)
 		if err != nil {
 			h.logger.Error("vrf: failed to load params in VerifyVoteExtension; rejecting", "err", err)
 			return &cometabci.ResponseVerifyVoteExtension{Status: cometabci.ResponseVerifyVoteExtension_REJECT}, nil
+		}
+
+		// When VRF is enabled, require a non-empty vote extension so that votes
+		// without beacons do not count towards consensus.
+		if params.Enabled && len(req.VoteExtension) == 0 {
+			h.logger.Warn("vrf: empty vote extension while enabled; rejecting", "height", req.Height)
+			return &cometabci.ResponseVerifyVoteExtension{Status: cometabci.ResponseVerifyVoteExtension_REJECT}, nil
+		}
+
+		// Accept empty vote extensions when VRF is disabled.
+		if len(req.VoteExtension) == 0 {
+			return &cometabci.ResponseVerifyVoteExtension{Status: cometabci.ResponseVerifyVoteExtension_ACCEPT}, nil
 		}
 
 		// If VRF is disabled, ignore non-empty extensions for randomness purposes
@@ -198,7 +212,10 @@ func (h *Handler) VerifyVoteExtensionHandler() sdk.VerifyVoteExtensionHandler {
 		// target round derived from the last finalized block time. Do not
 		// reject here to avoid liveness regressions; PreBlock enforces the
 		// strict target-round policy.
-		if lastTS, tsErr := h.keeper.GetLastBlockTime(storeCtx); tsErr == nil {
+		if lastTS, tsErr := h.keeper.GetPrevBlockTime(ctx); tsErr == nil {
+			if lastTS == 0 {
+				lastTS, _ = h.keeper.GetLastBlockTime(ctx)
+			}
 			tref := time.Unix(lastTS, 0).UTC()
 			teff := tref.Add(-time.Duration(params.SafetyMarginSeconds) * time.Second)
 			targetRound := vrftypes.RoundAt(params, teff)

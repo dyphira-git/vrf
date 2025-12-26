@@ -20,10 +20,12 @@ type Keeper struct {
 
 	authority string
 
-	schema        collections.Schema
-	params        collections.Item[types.VrfParams]
-	latestBeacon  collections.Item[types.VrfBeacon]
-	lastBlockTime collections.Item[int64]
+	schema              collections.Schema
+	params              collections.Item[types.VrfParams]
+	latestBeacon        collections.Item[types.VrfBeacon]
+	lastBlockTime       collections.Item[int64]
+	prevBlockTime       collections.Item[int64]
+	paramsUpdatedHeight collections.Item[int64]
 
 	committee  collections.Map[string, string]
 	identities collections.Map[string, types.VrfIdentity]
@@ -37,14 +39,16 @@ func NewKeeper(
 	sb := collections.NewSchemaBuilder(ss)
 
 	k := Keeper{
-		storeService:  ss,
-		cdc:           cdc,
-		authority:     authority,
-		params:        collections.NewItem(sb, collections.NewPrefix(0), "params", types.VrfParamsValueCodec()),
-		latestBeacon:  collections.NewItem(sb, collections.NewPrefix(1), "latest_beacon", types.VrfBeaconValueCodec()),
-		lastBlockTime: collections.NewItem(sb, collections.NewPrefix(2), "last_block_time", collections.Int64Value),
-		committee:     collections.NewMap(sb, collections.NewPrefix(3), "vrf_committee", collections.StringKey, collections.StringValue),
-		identities:    collections.NewMap(sb, collections.NewPrefix(5), "vrf_identities", collections.StringKey, types.VrfIdentityValueCodec()),
+		storeService:        ss,
+		cdc:                 cdc,
+		authority:           authority,
+		params:              collections.NewItem(sb, collections.NewPrefix(0), "params", codec.CollValue[types.VrfParams](cdc)),
+		latestBeacon:        collections.NewItem(sb, collections.NewPrefix(1), "latest_beacon", codec.CollValue[types.VrfBeacon](cdc)),
+		lastBlockTime:       collections.NewItem(sb, collections.NewPrefix(2), "last_block_time", collections.Int64Value),
+		prevBlockTime:       collections.NewItem(sb, collections.NewPrefix(6), "prev_block_time", collections.Int64Value),
+		paramsUpdatedHeight: collections.NewItem(sb, collections.NewPrefix(4), "params_updated_height", collections.Int64Value),
+		committee:           collections.NewMap(sb, collections.NewPrefix(3), "vrf_committee", collections.StringKey, collections.StringValue),
+		identities:          collections.NewMap(sb, collections.NewPrefix(5), "vrf_identities", collections.StringKey, codec.CollValue[types.VrfIdentity](cdc)),
 	}
 
 	schema, err := sb.Build()
@@ -90,7 +94,43 @@ func (k Keeper) GetLastBlockTime(ctx context.Context) (int64, error) {
 }
 
 func (k Keeper) SetLastBlockTime(ctx context.Context, ts int64) error {
+	prev, err := k.lastBlockTime.Get(ctx)
+	if err != nil {
+		if !errors.Is(err, collections.ErrNotFound) {
+			return err
+		}
+		prev = ts
+	}
+	if err := k.prevBlockTime.Set(ctx, prev); err != nil {
+		return err
+	}
 	return k.lastBlockTime.Set(ctx, ts)
+}
+
+func (k Keeper) GetPrevBlockTime(ctx context.Context) (int64, error) {
+	ts, err := k.prevBlockTime.Get(ctx)
+	if err != nil {
+		if errors.Is(err, collections.ErrNotFound) {
+			return 0, nil
+		}
+		return 0, err
+	}
+	return ts, nil
+}
+
+func (k Keeper) GetParamsUpdatedHeight(ctx context.Context) (int64, error) {
+	height, err := k.paramsUpdatedHeight.Get(ctx)
+	if err != nil {
+		if errors.Is(err, collections.ErrNotFound) {
+			return 0, nil
+		}
+		return 0, err
+	}
+	return height, nil
+}
+
+func (k Keeper) SetParamsUpdatedHeight(ctx context.Context, height int64) error {
+	return k.paramsUpdatedHeight.Set(ctx, height)
 }
 
 // SetCommitteeMember adds or updates a committee member in the on-chain allowlist.

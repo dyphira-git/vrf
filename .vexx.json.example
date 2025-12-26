@@ -1,4 +1,0 @@
-{
-  "VEXX_PROJECT_ID": "<YOUR PROJECT NAME>", # https://github.com/user/<PROJECT NAME> for example
-  "VEXX_API_KEY": "vexx_5320_0000000000000000" # Acquire API key from vexx.sh (lol not yet) and paste it here
-}

@@ -3,15 +3,6 @@ set -eo pipefail
 
 go tool buf dep update
 go tool buf generate --template ./proto/buf.gen.openapi.yaml
-go tool buf generate --template ./proto/buf.gen.openapi-cosmos.yaml
-
-yq eval -i \
-  '.paths |= with_entries(select(.key | test("/cosmos/mint/") | not))' \
-  ./gen/cosmos/openapi.yaml
-
-yq eval-all 'select(fileIndex == 0) *+ select(fileIndex == 1)' \
-  ./gen/internal/openapi.yaml ./gen/cosmos/openapi.yaml \
-  >./gen/openapi.yaml
 
 cd gen
 
@@ -22,20 +13,6 @@ yq eval '.paths | keys | .[]' openapi.yaml | while IFS= read -r path; do
   normalizedPath="$path"
   paramName=""
   paramDescription=""
-
-  case "$path" in
-  "/cosmos/bank/v1beta1/denom_owners/**")
-    normalizedPath="/cosmos/bank/v1beta1/denom_owners/{denom}"
-    paramName="denom"
-    paramDescription="Query owners for a given token denom."
-    ;;
-
-  "/cosmos/bank/v1beta1/denoms_metadata/**")
-    normalizedPath="/cosmos/bank/v1beta1/denoms_metadata/{denom}"
-    paramName="denom"
-    paramDescription="Query metadata for a given token denom."
-    ;;
-  esac
 
   if [ "$normalizedPath" != "$path" ]; then
     oldPath="$path"

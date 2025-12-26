@@ -1,13 +1,10 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"errors"
-	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -19,17 +16,15 @@ import (
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
 
-	cometrpc "github.com/cometbft/cometbft/rpc/client/http"
-	comettypes "github.com/cometbft/cometbft/types"
-
+	sidecarv1 "github.com/vexxvakan/vrf/api/vexxvakan/sidecar/v1"
 	vrfv1 "github.com/vexxvakan/vrf/api/vexxvakan/vrf/v1"
 	"github.com/vexxvakan/vrf/sidecar"
-	sidecarmetrics "github.com/vexxvakan/vrf/sidecar/servers/prometheus/metrics"
-	servertypes "github.com/vexxvakan/vrf/sidecar/servers/vrf/types"
+	"github.com/vexxvakan/vrf/sidecar/chainws"
+	"github.com/vexxvakan/vrf/sidecar/drand"
+	sidecarmetrics "github.com/vexxvakan/vrf/sidecar/servers/metrics"
 )
 
 var (
-	errChainRPCAddrRequiredForWS      = errors.New("chain RPC address is required for websocket event subscription")
 	errChainReturnedNilVrfParams      = errors.New("chain returned nil VrfParams")
 	errNilConfig                      = errors.New("nil config")
 	errNilVrfParams                   = errors.New("nil vrf params")
@@ -42,6 +37,7 @@ var (
 	errChainGRPCAddrRequired          = errors.New("chain gRPC address is required")
 	errNilSidecarConfig               = errors.New("nil sidecar config")
 	errNilDynamicService              = errors.New("nil dynamic service")
+	errNilDKGManager                  = errors.New("nil dkg manager")
 )
 
 type stringSliceFlag []string
@@ -54,15 +50,15 @@ func (s *stringSliceFlag) Set(v string) error {
 }
 
 type drandController struct {
-	cfg     sidecar.DrandProcessConfig
+	cfg     drand.DrandProcessConfig
 	logger  *zap.Logger
 	metrics sidecarmetrics.Metrics
 
 	mu   sync.Mutex
-	proc *sidecar.DrandProcess
+	proc *drand.DrandProcess
 }
 
-func newDrandController(cfg sidecar.DrandProcessConfig, logger *zap.Logger, metrics sidecarmetrics.Metrics) *drandController {
+func newDrandController(cfg drand.DrandProcessConfig, logger *zap.Logger, metrics sidecarmetrics.Metrics) *drandController {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
@@ -85,7 +81,7 @@ func (c *drandController) Start(ctx context.Context) error {
 		return nil
 	}
 
-	proc, err := sidecar.StartDrandProcess(ctx, c.cfg, c.logger, c.metrics)
+	proc, err := drand.StartDrandProcess(ctx, c.cfg, c.logger, c.metrics)
 	if err != nil {
 		return err
 	}
@@ -104,108 +100,36 @@ func (c *drandController) Stop() {
 	}
 }
 
-type reshareEventInfo struct {
-	height    int64
-	initiator string
-}
+func (c *drandController) Status() drand.ProcessStatus {
+	if c == nil {
+		return drand.ProcessStatus{}
+	}
 
-type reshareEventCache struct {
-	mu      sync.RWMutex
-	byEpoch map[uint64]reshareEventInfo
-}
-
-func newReshareEventCache() *reshareEventCache {
-	return &reshareEventCache{byEpoch: make(map[uint64]reshareEventInfo)}
-}
-
-func (c *reshareEventCache) set(epoch uint64, info reshareEventInfo) {
 	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.byEpoch[epoch] = info
+	proc := c.proc
+	c.mu.Unlock()
+
+	if proc == nil {
+		return drand.ProcessStatus{}
+	}
+
+	return proc.Status()
 }
 
-func (c *reshareEventCache) get(epoch uint64) (reshareEventInfo, bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	info, ok := c.byEpoch[epoch]
-	return info, ok
-}
-
-func startReshareEventSubscriber(
-	ctx context.Context,
-	logger *zap.Logger,
-	cometRPCAddr string,
-) (*reshareEventCache, func(), error) {
-	if strings.TrimSpace(cometRPCAddr) == "" {
-		return nil, nil, errChainRPCAddrRequiredForWS
+func (c *drandController) TailLogs(n int) []drand.LogEntry {
+	if c == nil {
+		return nil
 	}
 
-	client, err := cometrpc.New(cometRPCAddr, "/websocket")
-	if err != nil {
-		return nil, nil, err
+	c.mu.Lock()
+	proc := c.proc
+	c.mu.Unlock()
+
+	if proc == nil {
+		return nil
 	}
 
-	if err := client.Start(); err != nil {
-		return nil, nil, err
-	}
-
-	cache := newReshareEventCache()
-
-	sub, err := client.Subscribe(ctx, "sidecar", "tm.event='Tx'", 256)
-	if err != nil {
-		_ = client.Stop()
-		return nil, nil, err
-	}
-
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case ev, ok := <-sub:
-				if !ok {
-					return
-				}
-
-				epochs := ev.Events["vrf_schedule_reshare.new_reshare_epoch"]
-				if len(epochs) == 0 {
-					continue
-				}
-
-				epoch, err := strconv.ParseUint(epochs[0], 10, 64)
-				if err != nil {
-					continue
-				}
-
-				info := reshareEventInfo{}
-				if initiators := ev.Events["vrf_schedule_reshare.initiator"]; len(initiators) > 0 {
-					info.initiator = initiators[0]
-				}
-
-				switch data := ev.Data.(type) {
-				case comettypes.EventDataTx:
-					info.height = data.Height
-				case *comettypes.EventDataTx:
-					info.height = data.Height
-				}
-
-				cache.set(epoch, info)
-				logger.Info(
-					"observed vrf reshare event",
-					zap.Uint64("reshare_epoch", epoch),
-					zap.Int64("height", info.height),
-					zap.String("initiator", info.initiator),
-				)
-			}
-		}
-	}()
-
-	closeFn := func() {
-		_ = client.UnsubscribeAll(context.Background(), "sidecar")
-		_ = client.Stop()
-	}
-
-	return cache, closeFn, nil
+	return proc.TailLogs(n)
 }
 
 func queryVrfParams(ctx context.Context, qc vrfv1.QueryClient) (*vrfv1.VrfParams, error) {
@@ -219,7 +143,7 @@ func queryVrfParams(ctx context.Context, qc vrfv1.QueryClient) (*vrfv1.VrfParams
 	return resp.Params, nil
 }
 
-func mergeChainParamsIntoConfig(cfg *sidecar.Config, params *vrfv1.VrfParams) error {
+func mergeChainParamsIntoConfig(cfg *drand.Config, params *vrfv1.VrfParams) error {
 	if cfg == nil {
 		return errNilConfig
 	}
@@ -253,8 +177,49 @@ func mergeChainParamsIntoConfig(cfg *sidecar.Config, params *vrfv1.VrfParams) er
 	return nil
 }
 
-func infoFromConfig(cfg sidecar.Config) *servertypes.QueryInfoResponse {
-	return &servertypes.QueryInfoResponse{
+func mergeInitialDKGIntoConfig(cfg *drand.Config, info chainws.InitialDKGEvent) error {
+	if cfg == nil {
+		return errNilConfig
+	}
+
+	if len(info.ChainHash) == 0 || len(info.PublicKey) == 0 || info.PeriodSeconds == 0 || info.GenesisUnixSec == 0 {
+		return errOnChainVrfParamsIncomplete
+	}
+
+	if len(cfg.ChainHash) > 0 && !bytes.Equal(cfg.ChainHash, info.ChainHash) {
+		return errChainHashMismatch
+	}
+	if len(cfg.PublicKey) > 0 && !bytes.Equal(cfg.PublicKey, info.PublicKey) {
+		return errPublicKeyMismatch
+	}
+	if cfg.PeriodSeconds != 0 && cfg.PeriodSeconds != info.PeriodSeconds {
+		return errPeriodMismatch
+	}
+	if cfg.GenesisUnixSec != 0 && cfg.GenesisUnixSec != info.GenesisUnixSec {
+		return errGenesisMismatch
+	}
+
+	cfg.ChainHash = append([]byte(nil), info.ChainHash...)
+	cfg.PublicKey = append([]byte(nil), info.PublicKey...)
+	cfg.PeriodSeconds = info.PeriodSeconds
+	cfg.GenesisUnixSec = info.GenesisUnixSec
+
+	return nil
+}
+
+func clearChainParams(cfg *drand.Config) {
+	if cfg == nil {
+		return
+	}
+
+	cfg.ChainHash = nil
+	cfg.PublicKey = nil
+	cfg.PeriodSeconds = 0
+	cfg.GenesisUnixSec = 0
+}
+
+func infoFromConfig(cfg drand.Config) *sidecarv1.QueryInfoResponse {
+	return &sidecarv1.QueryInfoResponse{
 		ChainHash:      append([]byte(nil), cfg.ChainHash...),
 		PublicKey:      append([]byte(nil), cfg.PublicKey...),
 		PeriodSeconds:  cfg.PeriodSeconds,
@@ -262,7 +227,17 @@ func infoFromConfig(cfg sidecar.Config) *servertypes.QueryInfoResponse {
 	}
 }
 
+func chainConfigComplete(cfg drand.Config) bool {
+	return len(cfg.ChainHash) > 0 &&
+		len(cfg.PublicKey) > 0 &&
+		cfg.PeriodSeconds > 0 &&
+		cfg.GenesisUnixSec > 0
+}
+
 func dialChainGRPC(ctx context.Context, addr string) (*grpc.ClientConn, vrfv1.QueryClient, error) {
+	dialCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
 	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, nil, err
@@ -275,9 +250,9 @@ func dialChainGRPC(ctx context.Context, addr string) (*grpc.ClientConn, vrfv1.Qu
 			break
 		}
 
-		if !conn.WaitForStateChange(ctx, state) {
+		if !conn.WaitForStateChange(dialCtx, state) {
 			_ = conn.Close()
-			return nil, nil, ctx.Err()
+			return nil, nil, dialCtx.Err()
 		}
 	}
 
@@ -286,16 +261,12 @@ func dialChainGRPC(ctx context.Context, addr string) (*grpc.ClientConn, vrfv1.Qu
 
 type reshareRunner struct {
 	enabled bool
-
-	drandBinary string
-	dataDir     string
-	extraArgs   []string
-	timeout     time.Duration
+	manager *dkgManager
 
 	stateFile string
 }
 
-func newReshareRunner(enabled bool, cfg sidecar.Config, extraArgs []string, timeout time.Duration) (*reshareRunner, error) {
+func newReshareRunner(enabled bool, cfg drand.Config, manager *dkgManager) (*reshareRunner, error) {
 	if !enabled {
 		return &reshareRunner{enabled: false}, nil
 	}
@@ -303,23 +274,14 @@ func newReshareRunner(enabled bool, cfg sidecar.Config, extraArgs []string, time
 	if strings.TrimSpace(cfg.DrandDataDir) == "" {
 		return nil, errDrandDataDirRequiredForReshare
 	}
-
-	bin := strings.TrimSpace(cfg.BinaryPath)
-	if bin == "" {
-		bin = "drand"
-	}
-
-	if timeout <= 0 {
-		timeout = 30 * time.Minute
+	if manager == nil {
+		return nil, errNilDKGManager
 	}
 
 	return &reshareRunner{
-		enabled:     true,
-		drandBinary: bin,
-		dataDir:     cfg.DrandDataDir,
-		extraArgs:   append([]string(nil), extraArgs...),
-		timeout:     timeout,
-		stateFile:   filepath.Join(cfg.DrandDataDir, "sidecar_last_reshare_epoch"),
+		enabled:   true,
+		manager:   manager,
+		stateFile: filepath.Join(cfg.DrandDataDir, "sidecar_last_reshare_epoch"),
 	}, nil
 }
 
@@ -365,56 +327,17 @@ func (r *reshareRunner) recordEpoch(epoch uint64) error {
 	return os.Rename(tmp, r.stateFile)
 }
 
-func (r *reshareRunner) run(ctx context.Context, logger *zap.Logger) error {
+func (r *reshareRunner) run(ctx context.Context, evt chainws.ReshareScheduledEvent) error {
 	if !r.enabled {
 		return nil
 	}
-
-	cmdCtx, cancel := context.WithTimeout(ctx, r.timeout)
-	defer cancel()
-
-	args := []string{"share", "--folder", r.dataDir, "--reshare"}
-	args = append(args, r.extraArgs...)
-
-	cmd := exec.CommandContext(cmdCtx, r.drandBinary, args...) //nolint:gosec
-
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return err
+	if r.manager == nil {
+		return errNilDKGManager
 	}
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return err
-	}
-
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-
-	go pipeToLogger(stdout, logger, "stdout")
-	go pipeToLogger(stderr, logger, "stderr")
-
-	return cmd.Wait()
-}
-
-func pipeToLogger(r io.ReadCloser, logger *zap.Logger, stream string) {
-	defer func() { _ = r.Close() }()
-
-	scanner := bufio.NewScanner(r)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			continue
-		}
-		logger.Info("drand reshare", zap.String("stream", stream), zap.String("line", line))
-	}
+	return r.manager.RunReshare(ctx, evt)
 }
 
 type chainWatchConfig struct {
-	pollInterval time.Duration
-	wsEnabled    bool
-	cometRPCAddr string
-
 	reshareExtraArgs []string
 	reshareEnabled   bool
 	reshareTimeout   time.Duration
@@ -422,14 +345,17 @@ type chainWatchConfig struct {
 
 func startChainWatcher(
 	ctx context.Context,
-	cancel context.CancelFunc,
 	logger *zap.Logger,
 	metrics sidecarmetrics.Metrics,
-	cfg *sidecar.Config,
+	cfg *drand.Config,
 	chainGRPCAddr string,
 	opts chainWatchConfig,
 	dyn *sidecar.DynamicService,
 	drandCtl *drandController,
+	dkgMgr *dkgManager,
+	initialDKGEvents <-chan chainws.InitialDKGEvent,
+	paramsUpdatedEvents <-chan chainws.ParamsUpdatedEvent,
+	reshareEvents <-chan chainws.ReshareScheduledEvent,
 ) (initialEnabled bool, initialReshareEpoch uint64, cleanup func(), err error) {
 	if strings.TrimSpace(chainGRPCAddr) == "" {
 		return false, 0, func() {}, errChainGRPCAddrRequired
@@ -460,63 +386,43 @@ func startChainWatcher(
 		return false, 0, func() {}, err
 	}
 
-	if err := mergeChainParamsIntoConfig(cfg, params); err != nil {
-		_ = conn.Close()
-		return false, 0, func() {}, err
-	}
-
 	cfgSnapshot := *cfg
+	if err := mergeChainParamsIntoConfig(&cfgSnapshot, params); err != nil {
+		if errors.Is(err, errOnChainVrfParamsIncomplete) {
+			logger.Info("on-chain VRF params incomplete; waiting for initialization")
+		} else {
+			logger.Warn("failed to merge on-chain VRF params into sidecar config; starting in idle mode", zap.Error(err))
+			clearChainParams(&cfgSnapshot)
+		}
+	}
 	dyn.SetInfo(infoFromConfig(cfgSnapshot))
 
-	var (
-		eventCache *reshareEventCache
-		closeWS    func()
-	)
-	if opts.wsEnabled {
-		cache, closeFn, wsErr := startReshareEventSubscriber(ctx, logger, opts.cometRPCAddr)
-		if wsErr != nil {
-			_ = conn.Close()
-			return false, 0, func() {}, wsErr
-		}
-		eventCache = cache
-		closeWS = closeFn
-	}
-
-	runner, err := newReshareRunner(opts.reshareEnabled, cfgSnapshot, opts.reshareExtraArgs, opts.reshareTimeout)
+	runner, err := newReshareRunner(opts.reshareEnabled, cfgSnapshot, dkgMgr)
 	if err != nil {
-		if closeWS != nil {
-			closeWS()
-		}
 		_ = conn.Close()
 		return false, 0, func() {}, err
 	}
 
 	enabled := params.Enabled
 	reshareEpoch := params.ReshareEpoch
-
-	if opts.pollInterval <= 0 {
-		opts.pollInterval = 5 * time.Second
-	}
+	serviceActive := false
 
 	cleanup = func() {
-		if closeWS != nil {
-			closeWS()
-		}
 		_ = conn.Close()
 	}
 
-	runReshare := func(oldEpoch, newEpoch uint64, evt reshareEventInfo) bool {
+	runReshare := func(oldEpoch, newEpoch uint64, evt chainws.ReshareScheduledEvent) bool {
 		if !runner.isEnabled() {
 			logger.Info(
 				"reshare detected but listener disabled; skipping",
 				zap.Uint64("old_reshare_epoch", oldEpoch),
 				zap.Uint64("new_reshare_epoch", newEpoch),
-				zap.Int64("height", evt.height),
-				zap.String("initiator", evt.initiator),
+				zap.Int64("height", evt.Height),
+				zap.String("scheduler", evt.Scheduler),
+				zap.String("reason", evt.Reason),
 			)
 			return false
 		}
-
 		lastDone, err := runner.lastEpoch()
 		if err != nil {
 			logger.Error("failed to load last reshare epoch", zap.Error(err))
@@ -531,18 +437,16 @@ func startChainWatcher(
 			"starting drand reshare",
 			zap.Uint64("old_reshare_epoch", oldEpoch),
 			zap.Uint64("new_reshare_epoch", newEpoch),
-			zap.Int64("height", evt.height),
-			zap.String("initiator", evt.initiator),
+			zap.Int64("height", evt.Height),
+			zap.String("scheduler", evt.Scheduler),
+			zap.String("reason", evt.Reason),
 		)
 
 		dyn.SetService(nil)
-		if drandCtl != nil {
-			drandCtl.Stop()
-		}
+		serviceActive = false
 
-		if err := runner.run(ctx, logger); err != nil {
+		if err := runner.run(ctx, evt); err != nil {
 			logger.Error("drand reshare command failed", zap.Error(err))
-			cancel()
 			return false
 		}
 
@@ -550,142 +454,202 @@ func startChainWatcher(
 			logger.Error("failed to record completed reshare epoch", zap.Error(err))
 		}
 
-		if enabled {
-			if drandCtl != nil {
-				if err := drandCtl.Start(ctx); err != nil {
-					logger.Error("failed to restart drand subprocess after reshare", zap.Error(err))
-					cancel()
-					return false
-				}
-			}
-
-			svc, err := newDrandServiceWithRetry(ctx, cfgSnapshot, logger, metrics)
-			if err != nil {
-				logger.Error("failed to recreate drand service after reshare", zap.Error(err))
-				cancel()
-				return false
-			}
-			dyn.SetService(svc)
-		}
-
 		logger.Info(
 			"drand reshare completed",
 			zap.Uint64("reshare_epoch", newEpoch),
 			zap.Bool("enabled", enabled),
+			zap.Int64("height", evt.Height),
+			zap.String("scheduler", evt.Scheduler),
+			zap.String("reason", evt.Reason),
 		)
 		return true
 	}
 
 	// Catch-up: if the node restarts after a reshare was scheduled, run it once.
-	reshareExecutedAtStartup := false
 	if runner.isEnabled() {
 		lastDone, err := runner.lastEpoch()
 		if err != nil {
 			cleanup()
 			return false, 0, func() {}, err
 		}
-		if lastDone < reshareEpoch && reshareEpoch > 0 {
-			evt := reshareEventInfo{}
-			if eventCache != nil {
-				if info, ok := eventCache.get(reshareEpoch); ok {
-					evt = info
-				}
+		desiredEpoch := reshareEpoch
+		if lastDone < desiredEpoch && desiredEpoch > 0 {
+			evt := chainws.ReshareScheduledEvent{OldEpoch: lastDone, NewEpoch: desiredEpoch}
+			if runReshare(lastDone, desiredEpoch, evt) {
+				reshareEpoch = desiredEpoch
+			} else {
+				reshareEpoch = lastDone
 			}
-			reshareExecutedAtStartup = runReshare(lastDone, reshareEpoch, evt)
+		} else if lastDone > desiredEpoch {
+			reshareEpoch = lastDone
+		}
+	}
+
+	// Keep the drand daemon running while we wait for initial DKG / param setup.
+	if drandCtl != nil {
+		if err := drandCtl.Start(ctx); err != nil {
+			logger.Error("failed to start drand subprocess; continuing in idle mode", zap.Error(err))
 		}
 	}
 
 	// Apply initial enabled state.
-	if !enabled {
-		if drandCtl != nil {
-			drandCtl.Stop()
-		}
-		dyn.SetService(nil)
-	} else {
-		if drandCtl != nil {
-			if err := drandCtl.Start(ctx); err != nil {
-				cleanup()
-				return false, 0, func() {}, err
-			}
-		}
-
-		if !reshareExecutedAtStartup {
-			svc, err := newDrandServiceWithRetry(ctx, cfgSnapshot, logger, metrics)
-			if err != nil {
-				cleanup()
-				return false, 0, func() {}, err
-			}
-			dyn.SetService(svc)
+	if enabled {
+		if chainConfigComplete(cfgSnapshot) {
+			logger.Info("on-chain VRF enabled; waiting for drand service to become ready")
+		} else {
+			logger.Info("on-chain VRF enabled but params are incomplete; service will start once initialized")
 		}
 	}
 
+	tryStartService := func() {
+		if !chainConfigComplete(cfgSnapshot) || serviceActive {
+			return
+		}
+
+		svc, err := drand.NewDrandService(ctx, cfgSnapshot, logger, metrics)
+		if err != nil {
+			logger.Warn("drand service not ready yet; waiting", zap.Error(err))
+			return
+		}
+
+		dyn.SetService(svc)
+		serviceActive = true
+		logger.Info("drand service is ready")
+	}
+
+	tryStartService()
+
 	go func() {
-		ticker := time.NewTicker(opts.pollInterval)
-		defer ticker.Stop()
+		serviceTicker := time.NewTicker(2 * time.Second)
+		defer serviceTicker.Stop()
 
 		for {
 			select {
 			case <-ctx.Done():
 				return
-			case <-ticker.C:
-			}
-
-			p, err := queryVrfParams(ctx, qc)
-			if err != nil {
-				logger.Warn("failed to query on-chain VRF params", zap.Error(err))
-				continue
-			}
-
-			// Fail fast if the on-chain crypto/timing context changes under our feet.
-			if !bytes.Equal(p.ChainHash, cfgSnapshot.ChainHash) ||
-				!bytes.Equal(p.PublicKey, cfgSnapshot.PublicKey) ||
-				p.PeriodSeconds != cfgSnapshot.PeriodSeconds ||
-				p.GenesisUnixSec != cfgSnapshot.GenesisUnixSec {
-				logger.Error("on-chain VRF params changed; refusing to continue")
-				cancel()
-				return
-			}
-
-			if p.Enabled != enabled {
-				enabled = p.Enabled
-				logger.Info("on-chain VRF enabled changed", zap.Bool("enabled", enabled))
-
-				if !enabled {
-					if drandCtl != nil {
-						drandCtl.Stop()
-					}
-					dyn.SetService(nil)
+			case evt := <-initialDKGEvents:
+				if err := mergeInitialDKGIntoConfig(&cfgSnapshot, evt); err != nil {
+					logger.Warn("failed to merge initial DKG info into config; continuing in idle mode", zap.Error(err))
 				} else {
-					if drandCtl != nil {
-						if err := drandCtl.Start(ctx); err != nil {
-							logger.Error("failed to start drand subprocess after enable", zap.Error(err))
-						}
-					}
+					logger.Info(
+						"on-chain VRF params updated after initial DKG",
+						zap.Int64("height", evt.Height),
+						zap.String("initiator", evt.Initiator),
+					)
+				}
 
-					svc, err := newDrandServiceWithRetry(ctx, cfgSnapshot, logger, metrics)
-					if err != nil {
-						logger.Error("failed to create drand service after enable", zap.Error(err))
+				if evt.ReshareEpoch > 0 {
+					reshareEpoch = evt.ReshareEpoch
+				}
+
+				dyn.SetInfo(infoFromConfig(cfgSnapshot))
+				tryStartService()
+			case evt := <-paramsUpdatedEvents:
+				if evt.Params == nil {
+					continue
+				}
+
+				enabled = evt.Params.Enabled
+				reshareEpoch = evt.Params.ReshareEpoch
+
+				if err := mergeChainParamsIntoConfig(&cfgSnapshot, evt.Params); err != nil {
+					if errors.Is(err, errOnChainVrfParamsIncomplete) {
+						logger.Info("on-chain VRF params incomplete; continuing in idle mode")
 					} else {
-						dyn.SetService(svc)
+						logger.Warn("failed to merge on-chain VRF params update; continuing in idle mode", zap.Error(err))
 					}
+				} else {
+					logger.Info(
+						"observed vrf params update",
+						zap.Int64("height", evt.Height),
+						zap.String("authority", evt.Authority),
+					)
 				}
-			}
 
-			if p.ReshareEpoch > reshareEpoch {
-				newEpoch := p.ReshareEpoch
-				oldEpoch := reshareEpoch
-				reshareEpoch = newEpoch
-
-				evt := reshareEventInfo{}
-				if eventCache != nil {
-					if info, ok := eventCache.get(newEpoch); ok {
-						evt = info
-					}
+				dyn.SetInfo(infoFromConfig(cfgSnapshot))
+				tryStartService()
+			case evt := <-reshareEvents:
+				if evt.NewEpoch == 0 {
+					continue
 				}
-				_ = runReshare(oldEpoch, newEpoch, evt)
+				if evt.OldEpoch == 0 && reshareEpoch > 0 {
+					evt.OldEpoch = reshareEpoch
+				}
+				if evt.NewEpoch <= reshareEpoch {
+					logger.Debug(
+						"ignoring vrf reshare event (not newer than current)",
+						zap.Uint64("current_reshare_epoch", reshareEpoch),
+						zap.Uint64("new_reshare_epoch", evt.NewEpoch),
+						zap.Int64("height", evt.Height),
+						zap.String("scheduler", evt.Scheduler),
+					)
+					continue
+				}
+
+				logger.Info(
+					"observed vrf reshare event",
+					zap.Uint64("old_reshare_epoch", evt.OldEpoch),
+					zap.Uint64("new_reshare_epoch", evt.NewEpoch),
+					zap.Int64("height", evt.Height),
+					zap.String("scheduler", evt.Scheduler),
+					zap.String("reason", evt.Reason),
+				)
+
+				if runReshare(reshareEpoch, evt.NewEpoch, evt) {
+					reshareEpoch = evt.NewEpoch
+				}
+				continue
+			case <-serviceTicker.C:
+				tryStartService()
 			}
 		}
 	}()
 
 	return enabled, reshareEpoch, cleanup, nil
+}
+
+func runChainWatcherWithRetry(
+	ctx context.Context,
+	logger *zap.Logger,
+	metrics sidecarmetrics.Metrics,
+	cfg *drand.Config,
+	chainGRPCAddr string,
+	opts chainWatchConfig,
+	dyn *sidecar.DynamicService,
+	drandCtl *drandController,
+	dkgMgr *dkgManager,
+	initialDKGEvents <-chan chainws.InitialDKGEvent,
+	paramsUpdatedEvents <-chan chainws.ParamsUpdatedEvent,
+	reshareEvents <-chan chainws.ReshareScheduledEvent,
+) {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+
+	backoff := 500 * time.Millisecond
+	maxBackoff := 15 * time.Second
+
+	for {
+		if ctx.Err() != nil {
+			return
+		}
+
+		_, _, cleanup, err := startChainWatcher(ctx, logger, metrics, cfg, chainGRPCAddr, opts, dyn, drandCtl, dkgMgr, initialDKGEvents, paramsUpdatedEvents, reshareEvents)
+		if err == nil {
+			<-ctx.Done()
+			cleanup()
+			return
+		}
+
+		logger.Warn("failed to start chain watcher; retrying", zap.Error(err))
+		select {
+		case <-time.After(backoff):
+		case <-ctx.Done():
+			return
+		}
+		backoff *= 2
+		if backoff > maxBackoff {
+			backoff = maxBackoff
+		}
+	}
 }

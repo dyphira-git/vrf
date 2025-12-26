@@ -1,0 +1,91 @@
+name: release-notes
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve previous tag
+        id: prev
+        run: |
+          set -euo pipefail
+          git fetch --tags --force
+          if git describe --tags --abbrev=0 "${GITHUB_REF_NAME}^" >/dev/null 2>&1; then
+            prev="$(git describe --tags --abbrev=0 "${GITHUB_REF_NAME}^")"
+            echo "previous=${prev}" >> "${GITHUB_OUTPUT}"
+          else
+            echo "previous=" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Generate GitHub release notes
+        uses: actions/github-script@v7
+        env:
+          PREVIOUS_TAG: ${{ steps.prev.outputs.previous }}
+        with:
+          script: |
+            const fs = require("fs");
+            const tag = context.ref.replace("refs/tags/", "");
+            const previous = process.env.PREVIOUS_TAG || undefined;
+            const params = {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: tag,
+              target_commitish: context.sha,
+            };
+            if (previous) {
+              params.previous_tag_name = previous;
+            }
+            const { data } = await github.rest.repos.generateReleaseNotes(params);
+            fs.writeFileSync("release_notes.md", data.body);
+
+      - name: Build commit list
+        run: |
+          set -euo pipefail
+          if [ -n "${{ steps.prev.outputs.previous }}" ]; then
+            range="${{ steps.prev.outputs.previous }}..${GITHUB_REF_NAME}"
+          else
+            range="${GITHUB_REF_NAME}"
+          fi
+          git log --pretty=format:'- %s (%h)' ${range} > commits.md
+
+      - name: Compose release body
+        run: |
+          set -euo pipefail
+          cat release_notes.md > release_body.md
+          echo "" >> release_body.md
+          echo "## Commits" >> release_body.md
+          if [ -s commits.md ]; then
+            cat commits.md >> release_body.md
+          else
+            echo "- (no commits found)" >> release_body.md
+          fi
+
+      - name: Detect prerelease
+        id: prerelease
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF_NAME}" == *"-"* ]]; then
+            echo "value=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "value=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body_path: release_body.md
+          prerelease: ${{ steps.prerelease.outputs.value }}

@@ -22,13 +22,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryAccountInfoResponse"
+                $ref: '#/components/schemas/QueryAccountInfoResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Account Info
       tags:
         - Auth
@@ -85,13 +85,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryAccountsResponse"
+                $ref: '#/components/schemas/QueryAccountsResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Accounts
       tags:
         - Auth
@@ -112,13 +112,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryAccountResponse"
+                $ref: '#/components/schemas/QueryAccountResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Account
       tags:
         - Auth
@@ -149,13 +149,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryAccountAddressByIDResponse"
+                $ref: '#/components/schemas/QueryAccountAddressByIDResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Address
       tags:
         - Auth
@@ -169,13 +169,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Bech32PrefixResponse"
+                $ref: '#/components/schemas/Bech32PrefixResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Bech32 Prefix
       tags:
         - Auth
@@ -196,13 +196,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AddressBytesToStringResponse"
+                $ref: '#/components/schemas/AddressBytesToStringResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Address From Bytes
       tags:
         - Auth
@@ -222,13 +222,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AddressStringToBytesResponse"
+                $ref: '#/components/schemas/AddressStringToBytesResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Address From String
       tags:
         - Auth
@@ -242,13 +242,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryModuleAccountsResponse"
+                $ref: '#/components/schemas/QueryModuleAccountsResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Module Accounts
       tags:
         - Auth
@@ -268,13 +268,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryModuleAccountByNameResponse"
+                $ref: '#/components/schemas/QueryModuleAccountByNameResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Module Account
       tags:
         - Auth
@@ -288,13 +288,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryParamsResponse"
+                $ref: '#/components/schemas/QueryParamsResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Params
       tags:
         - Auth
@@ -360,13 +360,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryGrantsResponse"
+                $ref: '#/components/schemas/QueryGrantsResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Grants
       tags:
         - Authz
@@ -424,13 +424,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryGranteeGrantsResponse"
+                $ref: '#/components/schemas/QueryGranteeGrantsResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Grantee
       tags:
         - Authz
@@ -488,13 +488,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryGranterGrantsResponse"
+                $ref: '#/components/schemas/QueryGranterGrantsResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Granter
       tags:
         - Authz
@@ -562,13 +562,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryAllBalancesResponse"
+                $ref: '#/components/schemas/QueryAllBalancesResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Balances
       tags:
         - Bank
@@ -594,13 +594,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryBalanceResponse"
+                $ref: '#/components/schemas/QueryBalanceResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: By Denom
       tags:
         - Bank
@@ -664,13 +664,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryDenomOwnersResponse"
+                $ref: '#/components/schemas/QueryDenomOwnersResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Denom Owners
       tags:
         - Bank
@@ -730,13 +730,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryDenomOwnersByQueryResponse"
+                $ref: '#/components/schemas/QueryDenomOwnersByQueryResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Denom Owners By Query
       tags:
         - Bank
@@ -791,13 +791,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryDenomsMetadataResponse"
+                $ref: '#/components/schemas/QueryDenomsMetadataResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Denoms Metadata
       tags:
         - Bank
@@ -811,13 +811,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryDenomMetadataResponse"
+                $ref: '#/components/schemas/QueryDenomMetadataResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       parameters:
         - name: denom
           in: path
@@ -844,13 +844,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryDenomMetadataByQueryStringResponse"
+                $ref: '#/components/schemas/QueryDenomMetadataByQueryStringResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Denoms Metadata By Query String
       tags:
         - Bank
@@ -864,13 +864,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryParamsResponse"
+                $ref: '#/components/schemas/QueryParamsResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Params
       tags:
         - Bank
@@ -935,13 +935,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QuerySendEnabledResponse"
+                $ref: '#/components/schemas/QuerySendEnabledResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Send Enabled
       tags:
         - Bank
@@ -1005,13 +1005,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QuerySpendableBalancesResponse"
+                $ref: '#/components/schemas/QuerySpendableBalancesResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Spendable Balances
       tags:
         - Bank
@@ -1042,13 +1042,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QuerySpendableBalanceByDenomResponse"
+                $ref: '#/components/schemas/QuerySpendableBalanceByDenomResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Spendable Balances By Denom
       tags:
         - Bank
@@ -1105,13 +1105,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryTotalSupplyResponse"
+                $ref: '#/components/schemas/QueryTotalSupplyResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Supply
       tags:
         - Bank
@@ -1135,13 +1135,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QuerySupplyOfResponse"
+                $ref: '#/components/schemas/QuerySupplyOfResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Supply By Denom
       tags:
         - Bank
@@ -1155,13 +1155,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ConfigResponse"
+                $ref: '#/components/schemas/ConfigResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Config
       tags:
         - Base
@@ -1175,13 +1175,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/StatusResponse"
+                $ref: '#/components/schemas/StatusResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Status
       tags:
         - Base
@@ -1216,13 +1216,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ABCIQueryResponse"
+                $ref: '#/components/schemas/ABCIQueryResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: ABCI Query
       tags:
         - Base
@@ -1236,13 +1236,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GetLatestBlockResponse"
+                $ref: '#/components/schemas/GetLatestBlockResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Latest Block
       tags:
         - Base
@@ -1262,13 +1262,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GetBlockByHeightResponse"
+                $ref: '#/components/schemas/GetBlockByHeightResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Block
       tags:
         - Base
@@ -1282,13 +1282,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GetNodeInfoResponse"
+                $ref: '#/components/schemas/GetNodeInfoResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Node Info
       tags:
         - Base
@@ -1302,13 +1302,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GetSyncingResponse"
+                $ref: '#/components/schemas/GetSyncingResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Syncing
       tags:
         - Base
@@ -1361,13 +1361,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GetLatestValidatorSetResponse"
+                $ref: '#/components/schemas/GetLatestValidatorSetResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Current Validators
       tags:
         - Base
@@ -1425,13 +1425,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GetValidatorSetByHeightResponse"
+                $ref: '#/components/schemas/GetValidatorSetByHeightResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Validators At Height
       tags:
         - Base
@@ -1445,13 +1445,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryParamsResponse"
+                $ref: '#/components/schemas/QueryParamsResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Params
       tags:
         - Consensus
@@ -1468,13 +1468,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryCommunityPoolResponse"
+                $ref: '#/components/schemas/QueryCommunityPoolResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Community Pool
       tags:
         - Distribution
@@ -1497,13 +1497,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryDelegationTotalRewardsResponse"
+                $ref: '#/components/schemas/QueryDelegationTotalRewardsResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Rewards
       tags:
         - Distribution
@@ -1530,13 +1530,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryDelegationRewardsResponse"
+                $ref: '#/components/schemas/QueryDelegationRewardsResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Rewards By Validator
       tags:
         - Distribution
@@ -1557,13 +1557,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryDelegatorValidatorsResponse"
+                $ref: '#/components/schemas/QueryDelegatorValidatorsResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Validators
       tags:
         - Distribution
@@ -1584,13 +1584,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryDelegatorWithdrawAddressResponse"
+                $ref: '#/components/schemas/QueryDelegatorWithdrawAddressResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Withdraw Address
       tags:
         - Distribution
@@ -1604,13 +1604,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryParamsResponse"
+                $ref: '#/components/schemas/QueryParamsResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Params
       tags:
         - Distribution
@@ -1631,13 +1631,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryValidatorDistributionInfoResponse"
+                $ref: '#/components/schemas/QueryValidatorDistributionInfoResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Validator Rewards
       tags:
         - Distribution
@@ -1658,13 +1658,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryValidatorCommissionResponse"
+                $ref: '#/components/schemas/QueryValidatorCommissionResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Commission
       tags:
         - Distribution
@@ -1685,13 +1685,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryValidatorOutstandingRewardsResponse"
+                $ref: '#/components/schemas/QueryValidatorOutstandingRewardsResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Outstanding Rewards
       tags:
         - Distribution
@@ -1760,13 +1760,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryValidatorSlashesResponse"
+                $ref: '#/components/schemas/QueryValidatorSlashesResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Slashes
       tags:
         - Distribution
@@ -1819,13 +1819,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryAllEvidenceResponse"
+                $ref: '#/components/schemas/QueryAllEvidenceResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Evidences
       tags:
         - Evidence
@@ -1854,13 +1854,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryEvidenceResponse"
+                $ref: '#/components/schemas/QueryEvidenceResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Evidence
       tags:
         - Evidence
@@ -1887,13 +1887,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryAllowanceResponse"
+                $ref: '#/components/schemas/QueryAllowanceResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Allowance
       tags:
         - Feegrant
@@ -1951,13 +1951,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryAllowancesResponse"
+                $ref: '#/components/schemas/QueryAllowancesResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Allowances
       tags:
         - Feegrant
@@ -2015,13 +2015,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryAllowancesByGranterResponse"
+                $ref: '#/components/schemas/QueryAllowancesByGranterResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Issued
       tags:
         - Feegrant
@@ -2035,13 +2035,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryConstitutionResponse"
+                $ref: '#/components/schemas/QueryConstitutionResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Constitution
       tags:
         - Gov
@@ -2064,13 +2064,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryParamsResponse"
+                $ref: '#/components/schemas/QueryParamsResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Params
       tags:
         - Gov
@@ -2139,13 +2139,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryProposalsResponse"
+                $ref: '#/components/schemas/QueryProposalsResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Proposals
       tags:
         - Gov
@@ -2166,13 +2166,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryProposalResponse"
+                $ref: '#/components/schemas/QueryProposalResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Proposal
       tags:
         - Gov
@@ -2231,13 +2231,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryDepositsResponse"
+                $ref: '#/components/schemas/QueryDepositsResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Deposits
       tags:
         - Gov
@@ -2264,13 +2264,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryDepositResponse"
+                $ref: '#/components/schemas/QueryDepositResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Proposal Deposit By Depositor
       tags:
         - Gov
@@ -2291,13 +2291,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryTallyResultResponse"
+                $ref: '#/components/schemas/QueryTallyResultResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Tally
       tags:
         - Gov
@@ -2356,13 +2356,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryVotesResponse"
+                $ref: '#/components/schemas/QueryVotesResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Votes
       tags:
         - Gov
@@ -2389,13 +2389,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryVoteResponse"
+                $ref: '#/components/schemas/QueryVoteResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Vote By Voter
       tags:
         - Gov
@@ -2418,13 +2418,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryParamsResponse"
+                $ref: '#/components/schemas/QueryParamsResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: V1beta1 Params
       tags:
         - Gov
@@ -2493,13 +2493,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryProposalsResponse"
+                $ref: '#/components/schemas/QueryProposalsResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: V1beta1 Proposals
       tags:
         - Gov
@@ -2520,13 +2520,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryProposalResponse"
+                $ref: '#/components/schemas/QueryProposalResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: V1beta1 Proposal
       tags:
         - Gov
@@ -2585,13 +2585,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryDepositsResponse"
+                $ref: '#/components/schemas/QueryDepositsResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: V1beta1 Proposal Deposits
       tags:
         - Gov
@@ -2618,13 +2618,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryDepositResponse"
+                $ref: '#/components/schemas/QueryDepositResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: V1beta1 Proposal Deposit By Depositor
       tags:
         - Gov
@@ -2645,13 +2645,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryTallyResultResponse"
+                $ref: '#/components/schemas/QueryTallyResultResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: V1beta1 Proposal Tally
       tags:
         - Gov
@@ -2710,13 +2710,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryVotesResponse"
+                $ref: '#/components/schemas/QueryVotesResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: V1beta1 Votes
       tags:
         - Gov
@@ -2743,13 +2743,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryVoteResponse"
+                $ref: '#/components/schemas/QueryVoteResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: V1beta1 Vote By Voter
       tags:
         - Gov
@@ -2763,13 +2763,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryParamsResponse"
+                $ref: '#/components/schemas/QueryParamsResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Params
       tags:
         - Slashing
@@ -2822,13 +2822,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QuerySigningInfosResponse"
+                $ref: '#/components/schemas/QuerySigningInfosResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Signing Infos
       tags:
         - Slashing
@@ -2849,13 +2849,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QuerySigningInfoResponse"
+                $ref: '#/components/schemas/QuerySigningInfoResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Signing Info
       tags:
         - Slashing
@@ -2918,13 +2918,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryDelegatorDelegationsResponse"
+                $ref: '#/components/schemas/QueryDelegatorDelegationsResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Delegations
       tags:
         - Staking
@@ -2997,13 +2997,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryRedelegationsResponse"
+                $ref: '#/components/schemas/QueryRedelegationsResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Redelegations
       tags:
         - Staking
@@ -3067,13 +3067,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryDelegatorUnbondingDelegationsResponse"
+                $ref: '#/components/schemas/QueryDelegatorUnbondingDelegationsResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Unbonding Delegations
       tags:
         - Staking
@@ -3137,13 +3137,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryDelegatorValidatorsResponse"
+                $ref: '#/components/schemas/QueryDelegatorValidatorsResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Validators
       tags:
         - Staking
@@ -3172,13 +3172,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryDelegatorValidatorResponse"
+                $ref: '#/components/schemas/QueryDelegatorValidatorResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Validator By Delegator
       tags:
         - Staking
@@ -3199,13 +3199,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryHistoricalInfoResponse"
+                $ref: '#/components/schemas/QueryHistoricalInfoResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Historical Info
       tags:
         - Staking
@@ -3219,13 +3219,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryParamsResponse"
+                $ref: '#/components/schemas/QueryParamsResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Params
       tags:
         - Staking
@@ -3239,13 +3239,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryPoolResponse"
+                $ref: '#/components/schemas/QueryPoolResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Pool
       tags:
         - Staking
@@ -3307,13 +3307,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryValidatorsResponse"
+                $ref: '#/components/schemas/QueryValidatorsResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Validators
       tags:
         - Staking
@@ -3334,13 +3334,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryValidatorResponse"
+                $ref: '#/components/schemas/QueryValidatorResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Validator
       tags:
         - Staking
@@ -3403,13 +3403,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryValidatorDelegationsResponse"
+                $ref: '#/components/schemas/QueryValidatorDelegationsResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Delegations
       tags:
         - Staking
@@ -3436,13 +3436,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryDelegationResponse"
+                $ref: '#/components/schemas/QueryDelegationResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Validator Delegation By Delegator
       tags:
         - Staking
@@ -3471,13 +3471,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryUnbondingDelegationResponse"
+                $ref: '#/components/schemas/QueryUnbondingDelegationResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Unbonding Delegation
       tags:
         - Staking
@@ -3540,13 +3540,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryValidatorUnbondingDelegationsResponse"
+                $ref: '#/components/schemas/QueryValidatorUnbondingDelegationsResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Validator Unbonding Delegations
       tags:
         - Staking
@@ -3558,7 +3558,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/TxDecodeRequest"
+              $ref: '#/components/schemas/TxDecodeRequest'
         required: true
       responses:
         "200":
@@ -3566,13 +3566,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/TxDecodeResponse"
+                $ref: '#/components/schemas/TxDecodeResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Decode
       tags:
         - Tx
@@ -3584,7 +3584,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/TxDecodeAminoRequest"
+              $ref: '#/components/schemas/TxDecodeAminoRequest'
         required: true
       responses:
         "200":
@@ -3592,13 +3592,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/TxDecodeAminoResponse"
+                $ref: '#/components/schemas/TxDecodeAminoResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Amino
       tags:
         - Tx
@@ -3610,7 +3610,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/TxEncodeRequest"
+              $ref: '#/components/schemas/TxEncodeRequest'
         required: true
       responses:
         "200":
@@ -3618,13 +3618,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/TxEncodeResponse"
+                $ref: '#/components/schemas/TxEncodeResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Encode
       tags:
         - Tx
@@ -3636,7 +3636,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/TxEncodeAminoRequest"
+              $ref: '#/components/schemas/TxEncodeAminoRequest'
         required: true
       responses:
         "200":
@@ -3644,13 +3644,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/TxEncodeAminoResponse"
+                $ref: '#/components/schemas/TxEncodeAminoResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Amino
       tags:
         - Tx
@@ -3662,7 +3662,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/SimulateRequest"
+              $ref: '#/components/schemas/SimulateRequest'
         required: true
       responses:
         "200":
@@ -3670,13 +3670,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SimulateResponse"
+                $ref: '#/components/schemas/SimulateResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Simulate
       tags:
         - Tx
@@ -3765,13 +3765,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GetTxsEventResponse"
+                $ref: '#/components/schemas/GetTxsEventResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Txs
       tags:
         - Tx
@@ -3782,7 +3782,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/BroadcastTxRequest"
+              $ref: '#/components/schemas/BroadcastTxRequest'
         required: true
       responses:
         "200":
@@ -3790,13 +3790,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/BroadcastTxResponse"
+                $ref: '#/components/schemas/BroadcastTxResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Txs
       tags:
         - Tx
@@ -3855,13 +3855,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GetBlockWithTxsResponse"
+                $ref: '#/components/schemas/GetBlockWithTxsResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Get Txs By Block Height
       tags:
         - Tx
@@ -3882,13 +3882,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GetTxResponse"
+                $ref: '#/components/schemas/GetTxResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Get Tx By Hash
       tags:
         - Tx
@@ -3909,13 +3909,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryAppliedPlanResponse"
+                $ref: '#/components/schemas/QueryAppliedPlanResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Applied Plan
       tags:
         - Upgrade
@@ -3929,13 +3929,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryAuthorityResponse"
+                $ref: '#/components/schemas/QueryAuthorityResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Authority
       tags:
         - Upgrade
@@ -3949,13 +3949,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryCurrentPlanResponse"
+                $ref: '#/components/schemas/QueryCurrentPlanResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Current Plan
       tags:
         - Upgrade
@@ -3978,13 +3978,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryModuleVersionsResponse"
+                $ref: '#/components/schemas/QueryModuleVersionsResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Module Versions
       tags:
         - Upgrade
@@ -4013,13 +4013,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryUpgradedConsensusStateResponse"
+                $ref: '#/components/schemas/QueryUpgradedConsensusStateResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Upgraded Consensus State
       tags:
         - Upgrade
@@ -4033,13 +4033,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryBeaconResponse"
+                $ref: '#/components/schemas/QueryBeaconResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Beacon
       tags:
         - V1
@@ -4055,13 +4055,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryInfoResponse"
+                $ref: '#/components/schemas/QueryInfoResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Info
       tags:
         - V1
@@ -4075,13 +4075,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryParamsResponse"
+                $ref: '#/components/schemas/QueryParamsResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Params
       tags:
         - V1
@@ -4110,13 +4110,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryRandomWordsResponse"
+                $ref: '#/components/schemas/QueryRandomWordsResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Random Words
       tags:
         - V1
@@ -4137,13 +4137,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryRandomnessResponse"
+                $ref: '#/components/schemas/QueryRandomnessResponse'
         default:
           description: Default error response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Status"
+                $ref: '#/components/schemas/Status'
       summary: Randomness
       tags:
         - V1
@@ -4160,7 +4160,7 @@ components:
         events:
           type: array
           items:
-            $ref: "#/components/schemas/StringEvent"
+            $ref: '#/components/schemas/StringEvent'
           description: |-
             Events contains a slice of Event objects that were emitted during some
              execution.
@@ -4184,7 +4184,7 @@ components:
           type: string
           format: bytes
         proofOps:
-          $ref: "#/components/schemas/ProofOps"
+          $ref: '#/components/schemas/ProofOps'
         height:
           type: string
         codespace:
@@ -4223,7 +4223,7 @@ components:
         signerInfos:
           type: array
           items:
-            $ref: "#/components/schemas/SignerInfo"
+            $ref: '#/components/schemas/SignerInfo'
           description: |-
             signer_infos defines the signing modes for the required signers. The number
              and order of elements must match the required signers from TxBody's
@@ -4231,7 +4231,7 @@ components:
              the fee.
         fee:
           allOf:
-            - $ref: "#/components/schemas/Fee"
+            - $ref: '#/components/schemas/Fee'
           description: |-
             Fee is the fee and gas limit for the transaction. The first signer is the
              primary signer and the one which pays the fee. The fee can be calculated
@@ -4239,7 +4239,7 @@ components:
              of the signers. This can be estimated via simulation.
         tip:
           allOf:
-            - $ref: "#/components/schemas/Tip"
+            - $ref: '#/components/schemas/Tip'
           description: |-
             Tip is the optional tip used for transactions fees paid in another denom.
 
@@ -4254,7 +4254,7 @@ components:
         address:
           type: string
         pubKey:
-          $ref: "#/components/schemas/GoogleProtobufAny"
+          $ref: '#/components/schemas/GoogleProtobufAny'
         accountNumber:
           type: string
         sequence:
@@ -4273,13 +4273,13 @@ components:
       type: object
       properties:
         header:
-          $ref: "#/components/schemas/Header"
+          $ref: '#/components/schemas/Header'
         data:
-          $ref: "#/components/schemas/Data"
+          $ref: '#/components/schemas/Data'
         evidence:
-          $ref: "#/components/schemas/EvidenceList"
+          $ref: '#/components/schemas/EvidenceList'
         lastCommit:
-          $ref: "#/components/schemas/Commit"
+          $ref: '#/components/schemas/Commit'
     BlockID:
       type: object
       properties:
@@ -4287,7 +4287,7 @@ components:
           type: string
           format: bytes
         partSetHeader:
-          $ref: "#/components/schemas/PartSetHeader"
+          $ref: '#/components/schemas/PartSetHeader'
       description: BlockID
     BroadcastTxRequest:
       type: object
@@ -4307,7 +4307,7 @@ components:
       properties:
         txResponse:
           allOf:
-            - $ref: "#/components/schemas/TxResponse"
+            - $ref: '#/components/schemas/TxResponse'
           description: tx_response is the queried TxResponses.
       description: |-
         BroadcastTxResponse is the response type for the
@@ -4333,11 +4333,11 @@ components:
           type: integer
           format: int32
         blockId:
-          $ref: "#/components/schemas/BlockID"
+          $ref: '#/components/schemas/BlockID'
         signatures:
           type: array
           items:
-            $ref: "#/components/schemas/CommitSig"
+            $ref: '#/components/schemas/CommitSig'
       description: Commit contains the evidence that a block was committed by a set of validators.
     CommitSig:
       type: object
@@ -4421,7 +4421,7 @@ components:
       type: object
       properties:
         protocolVersion:
-          $ref: "#/components/schemas/ProtocolVersion"
+          $ref: '#/components/schemas/ProtocolVersion'
         defaultNodeId:
           type: string
         listenAddr:
@@ -4436,7 +4436,7 @@ components:
         moniker:
           type: string
         other:
-          $ref: "#/components/schemas/DefaultNodeInfoOther"
+          $ref: '#/components/schemas/DefaultNodeInfoOther'
     DefaultNodeInfoOther:
       type: object
       properties:
@@ -4468,7 +4468,7 @@ components:
         reward:
           type: array
           items:
-            $ref: "#/components/schemas/DecCoin"
+            $ref: '#/components/schemas/DecCoin'
       description: |-
         DelegationDelegatorReward represents the properties
          of a delegator's delegation reward.
@@ -4476,9 +4476,9 @@ components:
       type: object
       properties:
         delegation:
-          $ref: "#/components/schemas/Delegation"
+          $ref: '#/components/schemas/Delegation'
         balance:
-          $ref: "#/components/schemas/Coin"
+          $ref: '#/components/schemas/Coin'
       description: |-
         DelegationResponse is equivalent to Delegation except that it contains a
          balance in addition to shares which is more suitable for client responses.
@@ -4490,7 +4490,7 @@ components:
           description: address defines the address that owns a particular denomination.
         balance:
           allOf:
-            - $ref: "#/components/schemas/Coin"
+            - $ref: '#/components/schemas/Coin'
           description: balance is the balance of the denominated coin for an account.
       description: |-
         DenomOwner defines structure representing an account that owns or holds a
@@ -4508,7 +4508,7 @@ components:
         amount:
           type: array
           items:
-            $ref: "#/components/schemas/Coin"
+            $ref: '#/components/schemas/Coin'
           description: amount to be deposited by depositor.
       description: |-
         Deposit defines an amount deposited by an account address to an active
@@ -4517,9 +4517,9 @@ components:
       type: object
       properties:
         voteA:
-          $ref: "#/components/schemas/Vote"
+          $ref: '#/components/schemas/Vote'
         voteB:
-          $ref: "#/components/schemas/Vote"
+          $ref: '#/components/schemas/Vote'
         totalVotingPower:
           type: string
         validatorPower:
@@ -4536,7 +4536,7 @@ components:
         attributes:
           type: array
           items:
-            $ref: "#/components/schemas/EventAttribute"
+            $ref: '#/components/schemas/EventAttribute'
       description: |-
         Event allows application developers to attach additional information to
          ResponseFinalizeBlock and ResponseCheckTx.
@@ -4555,23 +4555,23 @@ components:
       type: object
       properties:
         duplicateVoteEvidence:
-          $ref: "#/components/schemas/DuplicateVoteEvidence"
+          $ref: '#/components/schemas/DuplicateVoteEvidence'
         lightClientAttackEvidence:
-          $ref: "#/components/schemas/LightClientAttackEvidence"
+          $ref: '#/components/schemas/LightClientAttackEvidence'
     EvidenceList:
       type: object
       properties:
         evidence:
           type: array
           items:
-            $ref: "#/components/schemas/Evidence"
+            $ref: '#/components/schemas/Evidence'
     Fee:
       type: object
       properties:
         amount:
           type: array
           items:
-            $ref: "#/components/schemas/Coin"
+            $ref: '#/components/schemas/Coin'
           description: amount is the amount of coins to be paid as a fee
         gasLimit:
           type: string
@@ -4610,13 +4610,13 @@ components:
       type: object
       properties:
         blockId:
-          $ref: "#/components/schemas/BlockID"
+          $ref: '#/components/schemas/BlockID'
         block:
           allOf:
-            - $ref: "#/components/schemas/Block"
-          description: "Deprecated: please use `sdk_block` instead"
+            - $ref: '#/components/schemas/Block'
+          description: 'Deprecated: please use `sdk_block` instead'
         sdkBlock:
-          $ref: "#/components/schemas/Block"
+          $ref: '#/components/schemas/Block'
       description: GetBlockByHeightResponse is the response type for the Query/GetBlockByHeight RPC method.
     GetBlockWithTxsResponse:
       type: object
@@ -4624,15 +4624,15 @@ components:
         txs:
           type: array
           items:
-            $ref: "#/components/schemas/Tx"
+            $ref: '#/components/schemas/Tx'
           description: txs are the transactions in the block.
         blockId:
-          $ref: "#/components/schemas/BlockID"
+          $ref: '#/components/schemas/BlockID'
         block:
-          $ref: "#/components/schemas/Block"
+          $ref: '#/components/schemas/Block'
         pagination:
           allOf:
-            - $ref: "#/components/schemas/PageResponse"
+            - $ref: '#/components/schemas/PageResponse'
           description: pagination defines a pagination for the response.
       description: |-
         GetBlockWithTxsResponse is the response type for the Service.GetBlockWithTxs
@@ -4641,13 +4641,13 @@ components:
       type: object
       properties:
         blockId:
-          $ref: "#/components/schemas/BlockID"
+          $ref: '#/components/schemas/BlockID'
         block:
           allOf:
-            - $ref: "#/components/schemas/Block"
-          description: "Deprecated: please use `sdk_block` instead"
+            - $ref: '#/components/schemas/Block'
+          description: 'Deprecated: please use `sdk_block` instead'
         sdkBlock:
-          $ref: "#/components/schemas/Block"
+          $ref: '#/components/schemas/Block'
       description: GetLatestBlockResponse is the response type for the Query/GetLatestBlock RPC method.
     GetLatestValidatorSetResponse:
       type: object
@@ -4657,19 +4657,19 @@ components:
         validators:
           type: array
           items:
-            $ref: "#/components/schemas/Validator"
+            $ref: '#/components/schemas/Validator'
         pagination:
           allOf:
-            - $ref: "#/components/schemas/PageResponse"
+            - $ref: '#/components/schemas/PageResponse'
           description: pagination defines an pagination for the response.
       description: GetLatestValidatorSetResponse is the response type for the Query/GetValidatorSetByHeight RPC method.
     GetNodeInfoResponse:
       type: object
       properties:
         defaultNodeInfo:
-          $ref: "#/components/schemas/DefaultNodeInfo"
+          $ref: '#/components/schemas/DefaultNodeInfo'
         applicationVersion:
-          $ref: "#/components/schemas/VersionInfo"
+          $ref: '#/components/schemas/VersionInfo'
       description: GetNodeInfoResponse is the response type for the Query/GetNodeInfo RPC method.
     GetSyncingResponse:
       type: object
@@ -4682,11 +4682,11 @@ components:
       properties:
         tx:
           allOf:
-            - $ref: "#/components/schemas/Tx"
+            - $ref: '#/components/schemas/Tx'
           description: tx is the queried transaction.
         txResponse:
           allOf:
-            - $ref: "#/components/schemas/TxResponse"
+            - $ref: '#/components/schemas/TxResponse'
           description: tx_response is the queried TxResponses.
       description: GetTxResponse is the response type for the Service.GetTx method.
     GetTxsEventResponse:
@@ -4695,16 +4695,16 @@ components:
         txs:
           type: array
           items:
-            $ref: "#/components/schemas/Tx"
+            $ref: '#/components/schemas/Tx'
           description: txs is the list of queried transactions.
         txResponses:
           type: array
           items:
-            $ref: "#/components/schemas/TxResponse"
+            $ref: '#/components/schemas/TxResponse'
           description: tx_responses is the list of queried TxResponses.
         pagination:
           allOf:
-            - $ref: "#/components/schemas/PageResponse"
+            - $ref: '#/components/schemas/PageResponse'
           description: |-
             pagination defines a pagination for the response.
              Deprecated post v0.46.x: use total instead.
@@ -4722,16 +4722,16 @@ components:
         validators:
           type: array
           items:
-            $ref: "#/components/schemas/Validator"
+            $ref: '#/components/schemas/Validator'
         pagination:
           allOf:
-            - $ref: "#/components/schemas/PageResponse"
+            - $ref: '#/components/schemas/PageResponse'
           description: pagination defines an pagination for the response.
       description: GetValidatorSetByHeightResponse is the response type for the Query/GetValidatorSetByHeight RPC method.
     GoogleProtobufAny:
       type: object
       properties:
-        "@type":
+        '@type':
           type: string
           description: The type of the serialized message.
       additionalProperties: true
@@ -4747,7 +4747,7 @@ components:
           description: grantee is the address of the user being granted an allowance of another user's funds.
         allowance:
           allOf:
-            - $ref: "#/components/schemas/GoogleProtobufAny"
+            - $ref: '#/components/schemas/GoogleProtobufAny'
           description: allowance can be any of basic, periodic, allowed fee allowance.
       description: Grant is stored in the KVStore to record a grant with full context
     GrantAuthorization:
@@ -4758,7 +4758,7 @@ components:
         grantee:
           type: string
         authorization:
-          $ref: "#/components/schemas/GoogleProtobufAny"
+          $ref: '#/components/schemas/GoogleProtobufAny'
         expiration:
           type: string
           format: date-time
@@ -4770,7 +4770,7 @@ components:
       properties:
         version:
           allOf:
-            - $ref: "#/components/schemas/Consensus"
+            - $ref: '#/components/schemas/Consensus'
           description: basic block info
         chainId:
           type: string
@@ -4781,7 +4781,7 @@ components:
           format: date-time
         lastBlockId:
           allOf:
-            - $ref: "#/components/schemas/BlockID"
+            - $ref: '#/components/schemas/BlockID'
           description: prev block info
         lastCommitHash:
           type: string
@@ -4821,11 +4821,11 @@ components:
       type: object
       properties:
         header:
-          $ref: "#/components/schemas/Header"
+          $ref: '#/components/schemas/Header'
         valset:
           type: array
           items:
-            $ref: "#/components/schemas/Validator"
+            $ref: '#/components/schemas/Validator'
       description: |-
         HistoricalInfo contains header and validator information for a given block.
          It is stored as part of staking module's state, which persists the `n` most
@@ -4835,20 +4835,20 @@ components:
       type: object
       properties:
         signedHeader:
-          $ref: "#/components/schemas/SignedHeader"
+          $ref: '#/components/schemas/SignedHeader'
         validatorSet:
-          $ref: "#/components/schemas/ValidatorSet"
+          $ref: '#/components/schemas/ValidatorSet'
     LightClientAttackEvidence:
       type: object
       properties:
         conflictingBlock:
-          $ref: "#/components/schemas/LightBlock"
+          $ref: '#/components/schemas/LightBlock'
         commonHeight:
           type: string
         byzantineValidators:
           type: array
           items:
-            $ref: "#/components/schemas/Validator"
+            $ref: '#/components/schemas/Validator'
         totalVotingPower:
           type: string
         timestamp:
@@ -4869,11 +4869,11 @@ components:
       properties:
         single:
           allOf:
-            - $ref: "#/components/schemas/ModeInfo_Single"
+            - $ref: '#/components/schemas/ModeInfo_Single'
           description: single represents a single signer
         multi:
           allOf:
-            - $ref: "#/components/schemas/ModeInfo_Multi"
+            - $ref: '#/components/schemas/ModeInfo_Multi'
           description: multi represents a nested multisig signer
       description: ModeInfo describes the signing mode of a single or nested multisig signer.
     ModeInfo_Multi:
@@ -4881,12 +4881,12 @@ components:
       properties:
         bitarray:
           allOf:
-            - $ref: "#/components/schemas/CompactBitArray"
+            - $ref: '#/components/schemas/CompactBitArray'
           description: bitarray specifies which keys within the multisig are signing
         modeInfos:
           type: array
           items:
-            $ref: "#/components/schemas/ModeInfo"
+            $ref: '#/components/schemas/ModeInfo'
           description: |-
             mode_infos is the corresponding modes of the signers of the multisig
              which could include nested multisig public keys
@@ -4954,7 +4954,7 @@ components:
         sendEnabled:
           type: array
           items:
-            $ref: "#/components/schemas/SendEnabled"
+            $ref: '#/components/schemas/SendEnabled'
           description: |-
             Deprecated: Use of SendEnabled in params is deprecated.
              For genesis, use the newly added send_enabled field in the genesis object.
@@ -5004,7 +5004,7 @@ components:
              such as a git commit that validators could automatically upgrade to
         upgradedClientState:
           allOf:
-            - $ref: "#/components/schemas/GoogleProtobufAny"
+            - $ref: '#/components/schemas/GoogleProtobufAny'
           description: |-
             Deprecated: UpgradedClientState field has been deprecated. IBC upgrade logic has been
              moved to the IBC module in the sub module 02-client.
@@ -5041,7 +5041,7 @@ components:
         ops:
           type: array
           items:
-            $ref: "#/components/schemas/ProofOp"
+            $ref: '#/components/schemas/ProofOp'
       description: |-
         ProofOps is Merkle proof defined by the list of ProofOps.
 
@@ -5054,7 +5054,7 @@ components:
           description: proposal_id defines the unique id of the proposal.
         content:
           allOf:
-            - $ref: "#/components/schemas/GoogleProtobufAny"
+            - $ref: '#/components/schemas/GoogleProtobufAny'
           description: content is the proposal's content.
         status:
           type: integer
@@ -5062,7 +5062,7 @@ components:
           format: enum
         finalTallyResult:
           allOf:
-            - $ref: "#/components/schemas/TallyResult"
+            - $ref: '#/components/schemas/TallyResult'
           description: |-
             final_tally_result is the final tally result of the proposal. When
              querying a proposal via gRPC, this field is not populated until the
@@ -5078,7 +5078,7 @@ components:
         totalDeposit:
           type: array
           items:
-            $ref: "#/components/schemas/Coin"
+            $ref: '#/components/schemas/Coin'
           description: total_deposit is the total deposit on the proposal.
         votingStartTime:
           type: string
@@ -5109,7 +5109,7 @@ components:
       properties:
         info:
           allOf:
-            - $ref: "#/components/schemas/BaseAccount"
+            - $ref: '#/components/schemas/BaseAccount'
           description: info is the account info which is represented by BaseAccount.
       description: QueryAccountInfoResponse is the Query/AccountInfo response type.
     QueryAccountResponse:
@@ -5117,7 +5117,7 @@ components:
       properties:
         account:
           allOf:
-            - $ref: "#/components/schemas/GoogleProtobufAny"
+            - $ref: '#/components/schemas/GoogleProtobufAny'
           description: account defines the account of the corresponding address.
       description: QueryAccountResponse is the response type for the Query/Account RPC method.
     QueryAccountsResponse:
@@ -5126,11 +5126,11 @@ components:
         accounts:
           type: array
           items:
-            $ref: "#/components/schemas/GoogleProtobufAny"
+            $ref: '#/components/schemas/GoogleProtobufAny'
           description: accounts are the existing accounts
         pagination:
           allOf:
-            - $ref: "#/components/schemas/PageResponse"
+            - $ref: '#/components/schemas/PageResponse'
           description: pagination defines the pagination in the response.
       description: QueryAccountsResponse is the response type for the Query/Accounts RPC method.
     QueryAllBalancesResponse:
@@ -5139,11 +5139,11 @@ components:
         balances:
           type: array
           items:
-            $ref: "#/components/schemas/Coin"
+            $ref: '#/components/schemas/Coin'
           description: balances is the balances of all the coins.
         pagination:
           allOf:
-            - $ref: "#/components/schemas/PageResponse"
+            - $ref: '#/components/schemas/PageResponse'
           description: pagination defines the pagination in the response.
       description: |-
         QueryAllBalancesResponse is the response type for the Query/AllBalances RPC
@@ -5154,11 +5154,11 @@ components:
         evidence:
           type: array
           items:
-            $ref: "#/components/schemas/GoogleProtobufAny"
+            $ref: '#/components/schemas/GoogleProtobufAny'
           description: evidence returns all evidences.
         pagination:
           allOf:
-            - $ref: "#/components/schemas/PageResponse"
+            - $ref: '#/components/schemas/PageResponse'
           description: pagination defines the pagination in the response.
       description: |-
         QueryAllEvidenceResponse is the response type for the Query/AllEvidence RPC
@@ -5168,7 +5168,7 @@ components:
       properties:
         allowance:
           allOf:
-            - $ref: "#/components/schemas/Grant"
+            - $ref: '#/components/schemas/Grant'
           description: allowance is a allowance granted for grantee by granter.
       description: QueryAllowanceResponse is the response type for the Query/Allowance RPC method.
     QueryAllowancesByGranterResponse:
@@ -5177,11 +5177,11 @@ components:
         allowances:
           type: array
           items:
-            $ref: "#/components/schemas/Grant"
+            $ref: '#/components/schemas/Grant'
           description: allowances that have been issued by the granter.
         pagination:
           allOf:
-            - $ref: "#/components/schemas/PageResponse"
+            - $ref: '#/components/schemas/PageResponse'
           description: pagination defines an pagination for the response.
       description: QueryAllowancesByGranterResponse is the response type for the Query/AllowancesByGranter RPC method.
     QueryAllowancesResponse:
@@ -5190,11 +5190,11 @@ components:
         allowances:
           type: array
           items:
-            $ref: "#/components/schemas/Grant"
+            $ref: '#/components/schemas/Grant'
           description: allowances are allowance's granted for grantee by granter.
         pagination:
           allOf:
-            - $ref: "#/components/schemas/PageResponse"
+            - $ref: '#/components/schemas/PageResponse'
           description: pagination defines an pagination for the response.
       description: QueryAllowancesResponse is the response type for the Query/Allowances RPC method.
     QueryAnnualProvisionsResponse:
@@ -5227,14 +5227,14 @@ components:
       properties:
         balance:
           allOf:
-            - $ref: "#/components/schemas/Coin"
+            - $ref: '#/components/schemas/Coin'
           description: balance is the balance of the coin.
       description: QueryBalanceResponse is the response type for the Query/Balance RPC method.
     QueryBeaconResponse:
       type: object
       properties:
         beacon:
-          $ref: "#/components/schemas/VrfBeacon"
+          $ref: '#/components/schemas/VrfBeacon'
       description: QueryBeaconResponse carries the canonical VrfBeacon for the requested height.
     QueryCommunityPoolResponse:
       type: object
@@ -5242,7 +5242,7 @@ components:
         pool:
           type: array
           items:
-            $ref: "#/components/schemas/DecCoin"
+            $ref: '#/components/schemas/DecCoin'
           description: pool defines community pool's coins.
       description: |-
         QueryCommunityPoolResponse is the response type for the Query/CommunityPool
@@ -5258,7 +5258,7 @@ components:
       properties:
         plan:
           allOf:
-            - $ref: "#/components/schemas/Plan"
+            - $ref: '#/components/schemas/Plan'
           description: plan is the current upgrade plan.
       description: |-
         QueryCurrentPlanResponse is the response type for the Query/CurrentPlan RPC
@@ -5268,7 +5268,7 @@ components:
       properties:
         delegationResponse:
           allOf:
-            - $ref: "#/components/schemas/DelegationResponse"
+            - $ref: '#/components/schemas/DelegationResponse'
           description: delegation_responses defines the delegation info of a delegation.
       description: QueryDelegationResponse is response type for the Query/Delegation RPC method.
     QueryDelegationRewardsResponse:
@@ -5277,7 +5277,7 @@ components:
         rewards:
           type: array
           items:
-            $ref: "#/components/schemas/DecCoin"
+            $ref: '#/components/schemas/DecCoin'
           description: rewards defines the rewards accrued by a delegation.
       description: |-
         QueryDelegationRewardsResponse is the response type for the
@@ -5288,12 +5288,12 @@ components:
         rewards:
           type: array
           items:
-            $ref: "#/components/schemas/DelegationDelegatorReward"
+            $ref: '#/components/schemas/DelegationDelegatorReward'
           description: rewards defines all the rewards accrued by a delegator.
         total:
           type: array
           items:
-            $ref: "#/components/schemas/DecCoin"
+            $ref: '#/components/schemas/DecCoin'
           description: total defines the sum of all the rewards.
       description: |-
         QueryDelegationTotalRewardsResponse is the response type for the
@@ -5304,11 +5304,11 @@ components:
         delegationResponses:
           type: array
           items:
-            $ref: "#/components/schemas/DelegationResponse"
+            $ref: '#/components/schemas/DelegationResponse'
           description: delegation_responses defines all the delegations' info of a delegator.
         pagination:
           allOf:
-            - $ref: "#/components/schemas/PageResponse"
+            - $ref: '#/components/schemas/PageResponse'
           description: pagination defines the pagination in the response.
       description: |-
         QueryDelegatorDelegationsResponse is response type for the
@@ -5319,10 +5319,10 @@ components:
         unbondingResponses:
           type: array
           items:
-            $ref: "#/components/schemas/UnbondingDelegation"
+            $ref: '#/components/schemas/UnbondingDelegation'
         pagination:
           allOf:
-            - $ref: "#/components/schemas/PageResponse"
+            - $ref: '#/components/schemas/PageResponse'
           description: pagination defines the pagination in the response.
       description: |-
         QueryUnbondingDelegatorDelegationsResponse is response type for the
@@ -5332,7 +5332,7 @@ components:
       properties:
         validator:
           allOf:
-            - $ref: "#/components/schemas/Validator"
+            - $ref: '#/components/schemas/Validator'
           description: validator defines the validator info.
       description: |-
         QueryDelegatorValidatorResponse response type for the
@@ -5362,7 +5362,7 @@ components:
       properties:
         metadata:
           allOf:
-            - $ref: "#/components/schemas/Metadata"
+            - $ref: '#/components/schemas/Metadata'
           description: metadata describes and provides all the client information for the requested token.
       description: |-
         QueryDenomMetadataByQueryStringResponse is the response type for the Query/DenomMetadata RPC
@@ -5372,7 +5372,7 @@ components:
       properties:
         metadata:
           allOf:
-            - $ref: "#/components/schemas/Metadata"
+            - $ref: '#/components/schemas/Metadata'
           description: metadata describes and provides all the client information for the requested token.
       description: |-
         QueryDenomMetadataResponse is the response type for the Query/DenomMetadata RPC
@@ -5383,10 +5383,10 @@ components:
         denomOwners:
           type: array
           items:
-            $ref: "#/components/schemas/DenomOwner"
+            $ref: '#/components/schemas/DenomOwner'
         pagination:
           allOf:
-            - $ref: "#/components/schemas/PageResponse"
+            - $ref: '#/components/schemas/PageResponse'
           description: pagination defines the pagination in the response.
       description: QueryDenomOwnersByQueryResponse defines the RPC response of a DenomOwnersByQuery RPC query.
     QueryDenomOwnersResponse:
@@ -5395,10 +5395,10 @@ components:
         denomOwners:
           type: array
           items:
-            $ref: "#/components/schemas/DenomOwner"
+            $ref: '#/components/schemas/DenomOwner'
         pagination:
           allOf:
-            - $ref: "#/components/schemas/PageResponse"
+            - $ref: '#/components/schemas/PageResponse'
           description: pagination defines the pagination in the response.
       description: QueryDenomOwnersResponse defines the RPC response of a DenomOwners RPC query.
     QueryDenomsMetadataResponse:
@@ -5407,11 +5407,11 @@ components:
         metadatas:
           type: array
           items:
-            $ref: "#/components/schemas/Metadata"
+            $ref: '#/components/schemas/Metadata'
           description: metadata provides the client information for all the registered tokens.
         pagination:
           allOf:
-            - $ref: "#/components/schemas/PageResponse"
+            - $ref: '#/components/schemas/PageResponse'
           description: pagination defines the pagination in the response.
       description: |-
         QueryDenomsMetadataResponse is the response type for the Query/DenomsMetadata RPC
@@ -5421,7 +5421,7 @@ components:
       properties:
         deposit:
           allOf:
-            - $ref: "#/components/schemas/Deposit"
+            - $ref: '#/components/schemas/Deposit'
           description: deposit defines the requested deposit.
       description: QueryDepositResponse is the response type for the Query/Deposit RPC method.
     QueryDepositsResponse:
@@ -5430,11 +5430,11 @@ components:
         deposits:
           type: array
           items:
-            $ref: "#/components/schemas/Deposit"
+            $ref: '#/components/schemas/Deposit'
           description: deposits defines the requested deposits.
         pagination:
           allOf:
-            - $ref: "#/components/schemas/PageResponse"
+            - $ref: '#/components/schemas/PageResponse'
           description: pagination defines the pagination in the response.
       description: QueryDepositsResponse is the response type for the Query/Deposits RPC method.
     QueryEvidenceResponse:
@@ -5442,7 +5442,7 @@ components:
       properties:
         evidence:
           allOf:
-            - $ref: "#/components/schemas/GoogleProtobufAny"
+            - $ref: '#/components/schemas/GoogleProtobufAny'
           description: evidence returns the requested evidence.
       description: QueryEvidenceResponse is the response type for the Query/Evidence RPC method.
     QueryGranteeGrantsResponse:
@@ -5451,11 +5451,11 @@ components:
         grants:
           type: array
           items:
-            $ref: "#/components/schemas/GrantAuthorization"
+            $ref: '#/components/schemas/GrantAuthorization'
           description: grants is a list of grants granted to the grantee.
         pagination:
           allOf:
-            - $ref: "#/components/schemas/PageResponse"
+            - $ref: '#/components/schemas/PageResponse'
           description: pagination defines an pagination for the response.
       description: QueryGranteeGrantsResponse is the response type for the Query/GranteeGrants RPC method.
     QueryGranterGrantsResponse:
@@ -5464,11 +5464,11 @@ components:
         grants:
           type: array
           items:
-            $ref: "#/components/schemas/GrantAuthorization"
+            $ref: '#/components/schemas/GrantAuthorization'
           description: grants is a list of grants granted by the granter.
         pagination:
           allOf:
-            - $ref: "#/components/schemas/PageResponse"
+            - $ref: '#/components/schemas/PageResponse'
           description: pagination defines an pagination for the response.
       description: QueryGranterGrantsResponse is the response type for the Query/GranterGrants RPC method.
     QueryGrantsResponse:
@@ -5477,11 +5477,11 @@ components:
         grants:
           type: array
           items:
-            $ref: "#/components/schemas/Grant"
+            $ref: '#/components/schemas/Grant'
           description: authorizations is a list of grants granted for grantee by granter.
         pagination:
           allOf:
-            - $ref: "#/components/schemas/PageResponse"
+            - $ref: '#/components/schemas/PageResponse'
           description: pagination defines an pagination for the response.
       description: QueryGrantsResponse is the response type for the Query/Authorizations RPC method.
     QueryHistoricalInfoResponse:
@@ -5489,7 +5489,7 @@ components:
       properties:
         hist:
           allOf:
-            - $ref: "#/components/schemas/HistoricalInfo"
+            - $ref: '#/components/schemas/HistoricalInfo'
           description: hist defines the historical info at the given height.
       description: |-
         QueryHistoricalInfoResponse is response type for the Query/HistoricalInfo RPC
@@ -5526,7 +5526,7 @@ components:
       type: object
       properties:
         account:
-          $ref: "#/components/schemas/GoogleProtobufAny"
+          $ref: '#/components/schemas/GoogleProtobufAny'
       description: QueryModuleAccountByNameResponse is the response type for the Query/ModuleAccountByName RPC method.
     QueryModuleAccountsResponse:
       type: object
@@ -5534,7 +5534,7 @@ components:
         accounts:
           type: array
           items:
-            $ref: "#/components/schemas/GoogleProtobufAny"
+            $ref: '#/components/schemas/GoogleProtobufAny'
       description: QueryModuleAccountsResponse is the response type for the Query/ModuleAccounts RPC method.
     QueryModuleVersionsResponse:
       type: object
@@ -5542,7 +5542,7 @@ components:
         moduleVersions:
           type: array
           items:
-            $ref: "#/components/schemas/ModuleVersion"
+            $ref: '#/components/schemas/ModuleVersion'
           description: module_versions is a list of module names with their consensus versions.
       description: |-
         QueryModuleVersionsResponse is the response type for the Query/ModuleVersions
@@ -5551,9 +5551,9 @@ components:
       type: object
       properties:
         params:
-          $ref: "#/components/schemas/VrfParams"
+          $ref: '#/components/schemas/VrfParams'
           allOf:
-            - $ref: "#/components/schemas/Params"
+            - $ref: '#/components/schemas/Params'
           description: params defines the parameters of the module.
       description: |-
         QueryParamsResponse is the response type for the Query/Params RPC method.
@@ -5562,7 +5562,7 @@ components:
       properties:
         pool:
           allOf:
-            - $ref: "#/components/schemas/Pool"
+            - $ref: '#/components/schemas/Pool'
           description: pool defines the pool info.
       description: QueryPoolResponse is response type for the Query/Pool RPC method.
     QueryProposalResponse:
@@ -5570,7 +5570,7 @@ components:
       properties:
         proposal:
           allOf:
-            - $ref: "#/components/schemas/Proposal"
+            - $ref: '#/components/schemas/Proposal'
           description: proposal is the requested governance proposal.
       description: QueryProposalResponse is the response type for the Query/Proposal RPC method.
     QueryProposalsResponse:
@@ -5579,11 +5579,11 @@ components:
         proposals:
           type: array
           items:
-            $ref: "#/components/schemas/Proposal"
+            $ref: '#/components/schemas/Proposal'
           description: proposals defines all the requested governance proposals.
         pagination:
           allOf:
-            - $ref: "#/components/schemas/PageResponse"
+            - $ref: '#/components/schemas/PageResponse'
           description: pagination defines the pagination in the response.
       description: |-
         QueryProposalsResponse is the response type for the Query/Proposals RPC
@@ -5631,10 +5631,10 @@ components:
         redelegationResponses:
           type: array
           items:
-            $ref: "#/components/schemas/RedelegationResponse"
+            $ref: '#/components/schemas/RedelegationResponse'
         pagination:
           allOf:
-            - $ref: "#/components/schemas/PageResponse"
+            - $ref: '#/components/schemas/PageResponse'
           description: pagination defines the pagination in the response.
       description: |-
         QueryRedelegationsResponse is response type for the Query/Redelegations RPC
@@ -5645,10 +5645,10 @@ components:
         sendEnabled:
           type: array
           items:
-            $ref: "#/components/schemas/SendEnabled"
+            $ref: '#/components/schemas/SendEnabled'
         pagination:
           allOf:
-            - $ref: "#/components/schemas/PageResponse"
+            - $ref: '#/components/schemas/PageResponse'
           description: |-
             pagination defines the pagination in the response. This field is only
              populated if the denoms field in the request is empty.
@@ -5658,7 +5658,7 @@ components:
       properties:
         valSigningInfo:
           allOf:
-            - $ref: "#/components/schemas/ValidatorSigningInfo"
+            - $ref: '#/components/schemas/ValidatorSigningInfo'
           description: val_signing_info is the signing info of requested val cons address
       description: |-
         QuerySigningInfoResponse is the response type for the Query/SigningInfo RPC
@@ -5669,10 +5669,10 @@ components:
         info:
           type: array
           items:
-            $ref: "#/components/schemas/ValidatorSigningInfo"
+            $ref: '#/components/schemas/ValidatorSigningInfo'
           description: info is the signing info of all validators
         pagination:
-          $ref: "#/components/schemas/PageResponse"
+          $ref: '#/components/schemas/PageResponse'
       description: |-
         QuerySigningInfosResponse is the response type for the Query/SigningInfos RPC
          method
@@ -5681,7 +5681,7 @@ components:
       properties:
         balance:
           allOf:
-            - $ref: "#/components/schemas/Coin"
+            - $ref: '#/components/schemas/Coin'
           description: balance is the balance of the coin.
       description: |-
         QuerySpendableBalanceByDenomResponse defines the gRPC response structure for
@@ -5692,11 +5692,11 @@ components:
         balances:
           type: array
           items:
-            $ref: "#/components/schemas/Coin"
+            $ref: '#/components/schemas/Coin'
           description: balances is the spendable balances of all the coins.
         pagination:
           allOf:
-            - $ref: "#/components/schemas/PageResponse"
+            - $ref: '#/components/schemas/PageResponse'
           description: pagination defines the pagination in the response.
       description: |-
         QuerySpendableBalancesResponse defines the gRPC response structure for querying
@@ -5706,7 +5706,7 @@ components:
       properties:
         amount:
           allOf:
-            - $ref: "#/components/schemas/Coin"
+            - $ref: '#/components/schemas/Coin'
           description: amount is the supply of the coin.
       description: QuerySupplyOfResponse is the response type for the Query/SupplyOf RPC method.
     QueryTallyResultResponse:
@@ -5714,7 +5714,7 @@ components:
       properties:
         tally:
           allOf:
-            - $ref: "#/components/schemas/TallyResult"
+            - $ref: '#/components/schemas/TallyResult'
           description: tally defines the requested tally.
       description: QueryTallyResultResponse is the response type for the Query/Tally RPC method.
     QueryTotalSupplyResponse:
@@ -5723,11 +5723,11 @@ components:
         supply:
           type: array
           items:
-            $ref: "#/components/schemas/Coin"
+            $ref: '#/components/schemas/Coin'
           description: supply is the supply of the coins
         pagination:
           allOf:
-            - $ref: "#/components/schemas/PageResponse"
+            - $ref: '#/components/schemas/PageResponse'
           description: pagination defines the pagination in the response.
       description: |-
         QueryTotalSupplyResponse is the response type for the Query/TotalSupply RPC
@@ -5737,7 +5737,7 @@ components:
       properties:
         unbond:
           allOf:
-            - $ref: "#/components/schemas/UnbondingDelegation"
+            - $ref: '#/components/schemas/UnbondingDelegation'
           description: unbond defines the unbonding information of a delegation.
       description: |-
         QueryDelegationResponse is response type for the Query/UnbondingDelegation
@@ -5756,7 +5756,7 @@ components:
       properties:
         commission:
           allOf:
-            - $ref: "#/components/schemas/ValidatorAccumulatedCommission"
+            - $ref: '#/components/schemas/ValidatorAccumulatedCommission'
           description: commission defines the commission the validator received.
       description: |-
         QueryValidatorCommissionResponse is the response type for the
@@ -5767,10 +5767,10 @@ components:
         delegationResponses:
           type: array
           items:
-            $ref: "#/components/schemas/DelegationResponse"
+            $ref: '#/components/schemas/DelegationResponse'
         pagination:
           allOf:
-            - $ref: "#/components/schemas/PageResponse"
+            - $ref: '#/components/schemas/PageResponse'
           description: pagination defines the pagination in the response.
       description: |-
         QueryValidatorDelegationsResponse is response type for the
@@ -5784,19 +5784,19 @@ components:
         selfBondRewards:
           type: array
           items:
-            $ref: "#/components/schemas/DecCoin"
+            $ref: '#/components/schemas/DecCoin'
           description: self_bond_rewards defines the self delegations rewards.
         commission:
           type: array
           items:
-            $ref: "#/components/schemas/DecCoin"
+            $ref: '#/components/schemas/DecCoin'
           description: commission defines the commission the validator received.
       description: QueryValidatorDistributionInfoResponse is the response type for the Query/ValidatorDistributionInfo RPC method.
     QueryValidatorOutstandingRewardsResponse:
       type: object
       properties:
         rewards:
-          $ref: "#/components/schemas/ValidatorOutstandingRewards"
+          $ref: '#/components/schemas/ValidatorOutstandingRewards'
       description: |-
         QueryValidatorOutstandingRewardsResponse is the response type for the
          Query/ValidatorOutstandingRewards RPC method.
@@ -5805,7 +5805,7 @@ components:
       properties:
         validator:
           allOf:
-            - $ref: "#/components/schemas/Validator"
+            - $ref: '#/components/schemas/Validator'
           description: validator defines the validator info.
       description: QueryValidatorResponse is response type for the Query/Validator RPC method
     QueryValidatorSlashesResponse:
@@ -5814,11 +5814,11 @@ components:
         slashes:
           type: array
           items:
-            $ref: "#/components/schemas/ValidatorSlashEvent"
+            $ref: '#/components/schemas/ValidatorSlashEvent'
           description: slashes defines the slashes the validator received.
         pagination:
           allOf:
-            - $ref: "#/components/schemas/PageResponse"
+            - $ref: '#/components/schemas/PageResponse'
           description: pagination defines the pagination in the response.
       description: |-
         QueryValidatorSlashesResponse is the response type for the
@@ -5829,10 +5829,10 @@ components:
         unbondingResponses:
           type: array
           items:
-            $ref: "#/components/schemas/UnbondingDelegation"
+            $ref: '#/components/schemas/UnbondingDelegation'
         pagination:
           allOf:
-            - $ref: "#/components/schemas/PageResponse"
+            - $ref: '#/components/schemas/PageResponse'
           description: pagination defines the pagination in the response.
       description: |-
         QueryValidatorUnbondingDelegationsResponse is response type for the
@@ -5843,11 +5843,11 @@ components:
         validators:
           type: array
           items:
-            $ref: "#/components/schemas/Validator"
+            $ref: '#/components/schemas/Validator'
           description: validators contains all the queried validators.
         pagination:
           allOf:
-            - $ref: "#/components/schemas/PageResponse"
+            - $ref: '#/components/schemas/PageResponse'
           description: pagination defines the pagination in the response.
       description: QueryValidatorsResponse is response type for the Query/Validators RPC method
     QueryVoteResponse:
@@ -5855,7 +5855,7 @@ components:
       properties:
         vote:
           allOf:
-            - $ref: "#/components/schemas/Vote"
+            - $ref: '#/components/schemas/Vote'
           description: vote defines the queried vote.
       description: QueryVoteResponse is the response type for the Query/Vote RPC method.
     QueryVotesResponse:
@@ -5864,11 +5864,11 @@ components:
         votes:
           type: array
           items:
-            $ref: "#/components/schemas/Vote"
+            $ref: '#/components/schemas/Vote'
           description: votes defines the queried votes.
         pagination:
           allOf:
-            - $ref: "#/components/schemas/PageResponse"
+            - $ref: '#/components/schemas/PageResponse'
           description: pagination defines the pagination in the response.
       description: QueryVotesResponse is the response type for the Query/Votes RPC method.
     Redelegation:
@@ -5886,7 +5886,7 @@ components:
         entries:
           type: array
           items:
-            $ref: "#/components/schemas/RedelegationEntry"
+            $ref: '#/components/schemas/RedelegationEntry'
           description: entries are the redelegation entries.
       description: |-
         Redelegation contains the list of a particular delegator's redelegating bonds
@@ -5918,7 +5918,7 @@ components:
       type: object
       properties:
         redelegationEntry:
-          $ref: "#/components/schemas/RedelegationEntry"
+          $ref: '#/components/schemas/RedelegationEntry'
         balance:
           type: string
       description: |-
@@ -5929,11 +5929,11 @@ components:
       type: object
       properties:
         redelegation:
-          $ref: "#/components/schemas/Redelegation"
+          $ref: '#/components/schemas/Redelegation'
         entries:
           type: array
           items:
-            $ref: "#/components/schemas/RedelegationEntryResponse"
+            $ref: '#/components/schemas/RedelegationEntryResponse'
       description: |-
         RedelegationResponse is equivalent to a Redelegation except that its entries
          contain a balance in addition to shares which is more suitable for client
@@ -5955,14 +5955,14 @@ components:
         events:
           type: array
           items:
-            $ref: "#/components/schemas/Event"
+            $ref: '#/components/schemas/Event'
           description: |-
             Events contains a slice of Event objects that were emitted during message
              or handler execution.
         msgResponses:
           type: array
           items:
-            $ref: "#/components/schemas/GoogleProtobufAny"
+            $ref: '#/components/schemas/GoogleProtobufAny'
           description: msg_responses contains the Msg handler responses type packed in Anys.
       description: Result is the union of ResponseFormat and ResponseCheckTx.
     SendEnabled:
@@ -5979,22 +5979,22 @@ components:
       type: object
       properties:
         header:
-          $ref: "#/components/schemas/Header"
+          $ref: '#/components/schemas/Header'
         commit:
-          $ref: "#/components/schemas/Commit"
+          $ref: '#/components/schemas/Commit'
     SignerInfo:
       type: object
       properties:
         publicKey:
           allOf:
-            - $ref: "#/components/schemas/GoogleProtobufAny"
+            - $ref: '#/components/schemas/GoogleProtobufAny'
           description: |-
             public_key is the public key of the signer. It is optional for accounts
              that already exist in state. If unset, the verifier can use the required \
              signer address for this position and lookup the public key.
         modeInfo:
           allOf:
-            - $ref: "#/components/schemas/ModeInfo"
+            - $ref: '#/components/schemas/ModeInfo'
           description: |-
             mode_info describes the signing mode of the signer and is a nested
              structure to support nested multisig pubkey's
@@ -6012,7 +6012,7 @@ components:
       properties:
         tx:
           allOf:
-            - $ref: "#/components/schemas/Tx"
+            - $ref: '#/components/schemas/Tx'
           description: |-
             tx is the transaction to simulate.
              Deprecated. Send raw tx bytes instead.
@@ -6028,11 +6028,11 @@ components:
       properties:
         gasInfo:
           allOf:
-            - $ref: "#/components/schemas/GasInfo"
+            - $ref: '#/components/schemas/GasInfo'
           description: gas_info is the information about gas used in the simulation.
         result:
           allOf:
-            - $ref: "#/components/schemas/Result"
+            - $ref: '#/components/schemas/Result'
           description: result is the result of the simulation.
       description: |-
         SimulateResponse is the response type for the
@@ -6050,9 +6050,9 @@ components:
         details:
           type: array
           items:
-            $ref: "#/components/schemas/GoogleProtobufAny"
+            $ref: '#/components/schemas/GoogleProtobufAny'
           description: A list of messages that carry the error details.  There is a common set of message types for APIs to use.
-      description: "The `Status` type defines a logical error model that is suitable for different programming environments, including REST APIs and RPC APIs. It is used by [gRPC](https://github.com/grpc). Each `Status` message contains three pieces of data: error code, error message, and error details. You can find out more about this error model and how to work with it in the [API Design Guide](https://cloud.google.com/apis/design/errors)."
+      description: 'The `Status` type defines a logical error model that is suitable for different programming environments, including REST APIs and RPC APIs. It is used by [gRPC](https://github.com/grpc). Each `Status` message contains three pieces of data: error code, error message, and error details. You can find out more about this error model and how to work with it in the [API Design Guide](https://cloud.google.com/apis/design/errors).'
     StatusResponse:
       type: object
       properties:
@@ -6078,7 +6078,7 @@ components:
         attributes:
           type: array
           items:
-            $ref: "#/components/schemas/Attribute"
+            $ref: '#/components/schemas/Attribute'
       description: |-
         StringEvent defines en Event object wrapper where all the attributes
          contain key/value pairs that are strings instead of raw bytes.
@@ -6104,7 +6104,7 @@ components:
         amount:
           type: array
           items:
-            $ref: "#/components/schemas/Coin"
+            $ref: '#/components/schemas/Coin'
           description: amount is the amount of the tip
         tipper:
           type: string
@@ -6115,11 +6115,11 @@ components:
       properties:
         body:
           allOf:
-            - $ref: "#/components/schemas/TxBody"
+            - $ref: '#/components/schemas/TxBody'
           description: body is the processable content of the transaction
         authInfo:
           allOf:
-            - $ref: "#/components/schemas/AuthInfo"
+            - $ref: '#/components/schemas/AuthInfo'
           description: |-
             auth_info is the authorization related content of the transaction,
              specifically signers, signer modes and fee
@@ -6139,7 +6139,7 @@ components:
         messages:
           type: array
           items:
-            $ref: "#/components/schemas/GoogleProtobufAny"
+            $ref: '#/components/schemas/GoogleProtobufAny'
           description: |-
             messages is a list of messages to be executed. The required signers of
              those messages define the number and order of elements in AuthInfo's
@@ -6189,7 +6189,7 @@ components:
         extensionOptions:
           type: array
           items:
-            $ref: "#/components/schemas/GoogleProtobufAny"
+            $ref: '#/components/schemas/GoogleProtobufAny'
           description: |-
             extension_options are arbitrary options that can be added by chains
              when the default options are not sufficient. If any of these are present
@@ -6197,7 +6197,7 @@ components:
         nonCriticalExtensionOptions:
           type: array
           items:
-            $ref: "#/components/schemas/GoogleProtobufAny"
+            $ref: '#/components/schemas/GoogleProtobufAny'
           description: |-
             extension_options are arbitrary options that can be added by chains
              when the default options are not sufficient. If any of these are present
@@ -6235,7 +6235,7 @@ components:
       properties:
         tx:
           allOf:
-            - $ref: "#/components/schemas/Tx"
+            - $ref: '#/components/schemas/Tx'
           description: tx is the decoded transaction.
       description: |-
         TxDecodeResponse is the response type for the
@@ -6262,7 +6262,7 @@ components:
       properties:
         tx:
           allOf:
-            - $ref: "#/components/schemas/Tx"
+            - $ref: '#/components/schemas/Tx'
           description: tx is the transaction to encode.
       description: |-
         TxEncodeRequest is the request type for the Service.TxEncode
@@ -6304,7 +6304,7 @@ components:
         logs:
           type: array
           items:
-            $ref: "#/components/schemas/ABCIMessageLog"
+            $ref: '#/components/schemas/ABCIMessageLog'
           description: The output of the application's logger (typed). May be non-deterministic.
         info:
           type: string
@@ -6317,7 +6317,7 @@ components:
           description: Amount of gas consumed by transaction.
         tx:
           allOf:
-            - $ref: "#/components/schemas/GoogleProtobufAny"
+            - $ref: '#/components/schemas/GoogleProtobufAny'
           description: The request transaction bytes.
         timestamp:
           type: string
@@ -6328,7 +6328,7 @@ components:
         events:
           type: array
           items:
-            $ref: "#/components/schemas/Event"
+            $ref: '#/components/schemas/Event'
           description: |-
             Events defines all the events emitted by processing a transaction. Note,
              these events include those emitted by processing all the messages and those
@@ -6349,7 +6349,7 @@ components:
         entries:
           type: array
           items:
-            $ref: "#/components/schemas/UnbondingDelegationEntry"
+            $ref: '#/components/schemas/UnbondingDelegationEntry'
           description: entries are the unbonding delegation entries.
       description: |-
         UnbondingDelegation stores all of a single delegator's unbonding bonds
@@ -6383,7 +6383,7 @@ components:
         address:
           type: string
         pubKey:
-          $ref: "#/components/schemas/GoogleProtobufAny"
+          $ref: '#/components/schemas/GoogleProtobufAny'
         votingPower:
           type: string
         proposerPriority:
@@ -6395,7 +6395,7 @@ components:
         commission:
           type: array
           items:
-            $ref: "#/components/schemas/DecCoin"
+            $ref: '#/components/schemas/DecCoin'
       description: |-
         ValidatorAccumulatedCommission represents accumulated commission
          for a validator kept as a running counter, can be withdrawn at any time.
@@ -6405,7 +6405,7 @@ components:
         rewards:
           type: array
           items:
-            $ref: "#/components/schemas/DecCoin"
+            $ref: '#/components/schemas/DecCoin'
       description: |-
         ValidatorOutstandingRewards represents outstanding (un-withdrawn) rewards
          for a validator inexpensive to track, allows simple sanity checks.
@@ -6415,9 +6415,9 @@ components:
         validators:
           type: array
           items:
-            $ref: "#/components/schemas/Validator"
+            $ref: '#/components/schemas/Validator'
         proposer:
-          $ref: "#/components/schemas/Validator"
+          $ref: '#/components/schemas/Validator'
         totalVotingPower:
           type: string
     ValidatorSigningInfo:
@@ -6482,7 +6482,7 @@ components:
         buildDeps:
           type: array
           items:
-            $ref: "#/components/schemas/Module"
+            $ref: '#/components/schemas/Module'
         cosmosSdkVersion:
           type: string
       description: VersionInfo is the type for the GetNodeInfoResponse message.
@@ -6505,7 +6505,7 @@ components:
         options:
           type: array
           items:
-            $ref: "#/components/schemas/WeightedVoteOption"
+            $ref: '#/components/schemas/WeightedVoteOption'
           description: options is the weighted vote options.
       description: |-
         Vote defines a vote on a governance proposal.
@@ -6563,9 +6563,7 @@ components:
           description: reshare_epoch is the on-chain resharing signal / epoch counter.
         slashingGraceBlocks:
           type: string
-          description: |-
-            slashing_grace_blocks configures the slashing grace window, as described
-             in the PRD.
+          description: slashing_grace_blocks configures the slashing grace window.
       description: |-
         VrfParams mirrors the PRD definition and contains all cryptographic and timing
          context needed to verify drand beacons on-chain and map block time to drand

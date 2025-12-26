@@ -5,12 +5,12 @@ import (
 
 	"google.golang.org/grpc"
 
-	vrftypes "github.com/vexxvakan/vrf/sidecar/servers/vrf/types"
+	sidecarv1 "github.com/vexxvakan/vrf/api/vexxvakan/sidecar/v1"
 )
 
 type Client interface {
-	Randomness(ctx context.Context, in *vrftypes.QueryRandomnessRequest, opts ...grpc.CallOption) (*vrftypes.QueryRandomnessResponse, error)
-	Info(ctx context.Context, in *vrftypes.QueryInfoRequest, opts ...grpc.CallOption) (*vrftypes.QueryInfoResponse, error)
+	Randomness(ctx context.Context, in *sidecarv1.QueryRandomnessRequest, opts ...grpc.CallOption) (*sidecarv1.QueryRandomnessResponse, error)
+	Info(ctx context.Context, in *sidecarv1.QueryInfoRequest, opts ...grpc.CallOption) (*sidecarv1.QueryInfoResponse, error)
 
 	Start(context.Context) error
 	Stop() error
@@ -28,16 +28,16 @@ func (NoOpClient) Stop() error {
 
 func (NoOpClient) Randomness(
 	_ context.Context,
-	_ *vrftypes.QueryRandomnessRequest,
+	_ *sidecarv1.QueryRandomnessRequest,
 	_ ...grpc.CallOption,
-) (*vrftypes.QueryRandomnessResponse, error) {
+) (*sidecarv1.QueryRandomnessResponse, error) {
 	return nil, nil
 }
 
 func (NoOpClient) Info(
 	_ context.Context,
-	_ *vrftypes.QueryInfoRequest,
+	_ *sidecarv1.QueryInfoRequest,
 	_ ...grpc.CallOption,
-) (*vrftypes.QueryInfoResponse, error) {
+) (*sidecarv1.QueryInfoResponse, error) {
 	return nil, nil
 }

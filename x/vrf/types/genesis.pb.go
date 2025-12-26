@@ -118,8 +118,7 @@ type VrfParams struct {
 	Enabled bool `protobuf:"varint,6,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	// reshare_epoch is the on-chain resharing signal / epoch counter.
 	ReshareEpoch uint64 `protobuf:"varint,7,opt,name=reshare_epoch,json=reshareEpoch,proto3" json:"reshare_epoch,omitempty"`
-	// slashing_grace_blocks configures the slashing grace window, as described
-	// in the PRD.
+	// slashing_grace_blocks configures the slashing grace window.
 	SlashingGraceBlocks uint64 `protobuf:"varint,8,opt,name=slashing_grace_blocks,json=slashingGraceBlocks,proto3" json:"slashing_grace_blocks,omitempty"`
 }
 

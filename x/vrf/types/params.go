@@ -6,10 +6,8 @@ import (
 )
 
 var (
-	errPeriodSecondsMustBePositive  = errors.New("period_seconds must be positive")
-	errSafetyMarginTooLow           = errors.New("safety_margin_seconds must be >= period_seconds")
-	errPublicKeyRequiredWhenEnabled = errors.New("public_key must not be empty when enabled")
-	errChainHashRequiredWhenEnabled = errors.New("chain_hash must not be empty when enabled")
+	errPeriodSecondsMustBePositive = errors.New("period_seconds must be positive")
+	errSafetyMarginTooLow          = errors.New("safety_margin_seconds must be >= period_seconds")
 )
 
 // DefaultParams mirrors the PRD definition and contains all cryptographic and timing
@@ -19,6 +17,7 @@ func DefaultParams() VrfParams {
 	return VrfParams{
 		PeriodSeconds:       30,
 		SafetyMarginSeconds: 30,
+		Enabled:             false,
 	}
 }
 
@@ -29,16 +28,6 @@ func (p VrfParams) Validate() error {
 
 	if p.SafetyMarginSeconds < p.PeriodSeconds {
 		return fmt.Errorf("%w: got %d, expected >=%d", errSafetyMarginTooLow, p.SafetyMarginSeconds, p.PeriodSeconds)
-	}
-
-	if p.Enabled {
-		if len(p.PublicKey) == 0 {
-			return errPublicKeyRequiredWhenEnabled
-		}
-
-		if len(p.ChainHash) == 0 {
-			return errChainHashRequiredWhenEnabled
-		}
 	}
 
 	return nil

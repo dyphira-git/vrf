@@ -2,9 +2,12 @@ package vrf
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -17,10 +20,13 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 
+	sidecarv1 "github.com/vexxvakan/vrf/api/vexxvakan/sidecar/v1"
 	"github.com/vexxvakan/vrf/sidecar"
-	sidecarmetrics "github.com/vexxvakan/vrf/sidecar/servers/prometheus/metrics"
-	"github.com/vexxvakan/vrf/sidecar/servers/vrf/types"
+	scerror "github.com/vexxvakan/vrf/sidecar/errors"
+	sidecarmetrics "github.com/vexxvakan/vrf/sidecar/servers/metrics"
 )
 
 const (
@@ -34,15 +40,18 @@ const (
 )
 
 type Server struct {
-	types.VrfServer
+	sidecarv1.UnimplementedVrfServer
 
-	svc sidecar.Service
+	svc     sidecar.Service
+	grpcSrv *grpc.Server
+	logger  *zap.Logger
+	metrics sidecarmetrics.Metrics
 
-	grpcSrv  *grpc.Server
 	grpcOpts []grpc.ServerOption
 	newGRPC  func(opts ...grpc.ServerOption) *grpc.Server
-	logger   *zap.Logger
-	metrics  sidecarmetrics.Metrics
+
+	extraRegistrations []func(grpc.ServiceRegistrar)
+	debugRegistrations []func(*http.ServeMux)
 
 	sem     chan struct{}
 	limiter *rate.Limiter
@@ -96,9 +105,23 @@ func (s *Server) SetGRPCConfig(cfg GRPCServerConfig) error {
 	return nil
 }
 
+func (s *Server) RegisterServices(fn func(grpc.ServiceRegistrar)) {
+	if s == nil || fn == nil {
+		return
+	}
+	s.extraRegistrations = append(s.extraRegistrations, fn)
+}
+
+func (s *Server) RegisterDebugRoutes(fn func(*http.ServeMux)) {
+	if s == nil || fn == nil {
+		return
+	}
+	s.debugRegistrations = append(s.debugRegistrations, fn)
+}
+
 func (s *Server) StartWithListener(ctx context.Context, ln net.Listener) error {
 	if s.svc == nil {
-		return errVrfServiceNil
+		return scerror.ErrVrfServiceNil
 	}
 
 	newGRPC := s.newGRPC
@@ -107,13 +130,19 @@ func (s *Server) StartWithListener(ctx context.Context, ln net.Listener) error {
 	}
 
 	s.grpcSrv = newGRPC(s.grpcOpts...)
-	types.RegisterVrfServer(s.grpcSrv, s)
+	sidecarv1.RegisterVrfServer(s.grpcSrv, s)
+	for _, fn := range s.extraRegistrations {
+		if fn == nil {
+			continue
+		}
+		fn(s.grpcSrv)
+	}
 
 	eg, ctx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {
 		<-ctx.Done()
-		s.logger.Info("context cancelled, stopping vrf server")
+		s.logger.Info("context cancelled, stopping vrf gRPC server")
 		s.grpcSrv.GracefulStop()
 		_ = ln.Close()
 		return nil
@@ -138,7 +167,7 @@ func (s *Server) Start(ctx context.Context, addr string) error {
 	if strings.HasPrefix(addr, "unix://") {
 		path := strings.TrimPrefix(addr, "unix://")
 		if strings.TrimSpace(path) == "" {
-			return errVrfUnixListenerPathEmpty
+			return scerror.ErrVrfUnixListenerPathEmpty
 		}
 		_ = os.Remove(path)
 
@@ -162,10 +191,10 @@ func (s *Server) Start(ctx context.Context, addr string) error {
 
 func (s *Server) Randomness(
 	ctx context.Context,
-	req *types.QueryRandomnessRequest,
-) (*types.QueryRandomnessResponse, error) {
+	req *sidecarv1.QueryRandomnessRequest,
+) (*sidecarv1.QueryRandomnessResponse, error) {
 	if req == nil {
-		return nil, errNilQueryRandomnessRequest
+		return nil, status.Error(codes.InvalidArgument, "nil QueryRandomnessRequest")
 	}
 
 	if err := s.allow(ctx, "Randomness"); err != nil {
@@ -177,7 +206,7 @@ func (s *Server) Randomness(
 
 	res, err := s.svc.Randomness(ctx, req.Round)
 	if err != nil {
-		return nil, err
+		return nil, mapServiceError(err)
 	}
 
 	return res, nil
@@ -185,8 +214,8 @@ func (s *Server) Randomness(
 
 func (s *Server) Info(
 	ctx context.Context,
-	_ *types.QueryInfoRequest,
-) (*types.QueryInfoResponse, error) {
+	_ *sidecarv1.QueryInfoRequest,
+) (*sidecarv1.QueryInfoResponse, error) {
 	if err := s.allow(ctx, "Info"); err != nil {
 		return nil, err
 	}
@@ -196,10 +225,25 @@ func (s *Server) Info(
 
 	info, err := s.svc.Info(ctx)
 	if err != nil {
-		return nil, err
+		return nil, mapServiceError(err)
 	}
 
 	return info, nil
+}
+
+func mapServiceError(err error) error {
+	switch {
+	case errors.Is(err, scerror.ErrServiceUnavailable):
+		return status.Error(codes.Unavailable, err.Error())
+	case errors.Is(err, scerror.ErrRoundNotAvailable):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, scerror.ErrWrongRound):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, scerror.ErrBadSignature), errors.Is(err, scerror.ErrHashMismatch):
+		return status.Error(codes.DataLoss, err.Error())
+	default:
+		return err
+	}
 }
 
 func (s *Server) acquire(method string) func() {
@@ -295,5 +339,142 @@ func clientKeyFromContext(ctx context.Context) string {
 			return ""
 		}
 		return p.Addr.Network() + ":" + str
+	}
+}
+
+func (s *Server) StartDebugHTTP(ctx context.Context, addr string) error {
+	if s.svc == nil {
+		return scerror.ErrVrfServiceNil
+	}
+
+	if strings.TrimSpace(addr) == "" {
+		return errors.New("debug http addr is empty")
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})
+	mux.HandleFunc("/vrf/v1/info", s.handleDebugInfo)
+	mux.HandleFunc("/vrf/v1/randomness", s.handleDebugRandomness)
+	for _, fn := range s.debugRegistrations {
+		if fn == nil {
+			continue
+		}
+		fn(mux)
+	}
+
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+
+	var (
+		ln      net.Listener
+		cleanup func()
+	)
+
+	if strings.HasPrefix(addr, "unix://") {
+		path := strings.TrimPrefix(addr, "unix://")
+		if strings.TrimSpace(path) == "" {
+			return scerror.ErrVrfDebugHTTPUnixListenerPathEmpty
+		}
+		_ = os.Remove(path)
+		unixLn, err := net.Listen("unix", path)
+		if err != nil {
+			return err
+		}
+		ln = unixLn
+		cleanup = func() { _ = os.Remove(path) }
+	} else {
+		tcpLn, err := net.Listen("tcp", addr)
+		if err != nil {
+			return err
+		}
+		ln = tcpLn
+	}
+
+	if cleanup == nil {
+		cleanup = func() {}
+	}
+	defer cleanup()
+
+	eg, ctx := errgroup.WithContext(ctx)
+
+	eg.Go(func() error {
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = srv.Shutdown(shutdownCtx)
+		_ = ln.Close()
+		return nil
+	})
+
+	eg.Go(func() error {
+		s.logger.Info("starting vrf debug HTTP server", zap.String("addr", ln.Addr().String()))
+		if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			if ctx.Err() != nil {
+				return nil
+			}
+			return fmt.Errorf("vrf debug http server: %w", err)
+		}
+		return nil
+	})
+
+	return eg.Wait()
+}
+
+func (s *Server) handleDebugInfo(w http.ResponseWriter, r *http.Request) {
+	info, err := s.svc.Info(r.Context())
+	if err != nil {
+		writeDebugError(w, err)
+		return
+	}
+
+	writeProtoJSON(w, info)
+}
+
+func (s *Server) handleDebugRandomness(w http.ResponseWriter, r *http.Request) {
+	round := uint64(0)
+	if q := strings.TrimSpace(r.URL.Query().Get("round")); q != "" {
+		parsed, err := strconv.ParseUint(q, 10, 64)
+		if err != nil {
+			http.Error(w, "invalid round", http.StatusBadRequest)
+			return
+		}
+		round = parsed
+	}
+
+	res, err := s.svc.Randomness(r.Context(), round)
+	if err != nil {
+		writeDebugError(w, err)
+		return
+	}
+
+	writeProtoJSON(w, res)
+}
+
+func writeProtoJSON(w http.ResponseWriter, msg proto.Message) {
+	b, err := protojson.MarshalOptions{
+		UseProtoNames: true,
+	}.Marshal(msg)
+	if err != nil {
+		http.Error(w, "failed to marshal response", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(b)
+}
+
+func writeDebugError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, scerror.ErrServiceUnavailable):
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+	case errors.Is(err, scerror.ErrRoundNotAvailable):
+		http.Error(w, err.Error(), http.StatusNotFound)
+	default:
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

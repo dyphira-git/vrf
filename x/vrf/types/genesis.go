@@ -41,7 +41,7 @@ func (gs GenesisState) Validate() error {
 			return errIdentitiesDrandBLSPublicKeyEmpty
 		}
 
-		// When params.chain_hash is set, enforce consistency for pre-seeded identities.
+		// When params.chain_hash is set, enforce module consistency
 		if len(gs.Params.ChainHash) > 0 && len(i.ChainHash) > 0 && !bytes.Equal(gs.Params.ChainHash, i.ChainHash) {
 			return errIdentitiesChainHashMismatchWithParams
 		}

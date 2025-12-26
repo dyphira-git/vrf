@@ -20,6 +20,12 @@ service Msg {
   // decorator, as described in the PRD.
   rpc VrfEmergencyDisable(MsgVrfEmergencyDisable) returns (MsgVrfEmergencyDisableResponse);
 
+  // InitialDkg sets the initial drand chain-info required to bootstrap VRF
+  // (chain_hash, public_key, period_seconds, genesis_unix_sec). On success it
+  // emits an event that off-chain listeners can use to trigger DKG/bootstrap
+  // workflows and refresh sidecar configuration.
+  rpc InitialDkg(MsgInitialDkg) returns (MsgInitialDkgResponse);
+
   // UpdateParams defines a governance operation for updating the x/vrf module
   // parameters. The authority is expected to be the x/gov module account.
   rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
@@ -57,6 +63,33 @@ message MsgVrfEmergencyDisable {
 // MsgVrfEmergencyDisableResponse is returned on successful delivery of
 // MsgVrfEmergencyDisable. The actual state transition is performed in PreBlock.
 message MsgVrfEmergencyDisableResponse {}
+
+// MsgInitialDkg sets the initial drand chain-info required to bootstrap VRF.
+message MsgInitialDkg {
+  option (cosmos.msg.v1.signer) = "initiator";
+  option (amino.name) = "vrf/x/vrf/MsgInitialDkg";
+
+  option (gogoproto.equal) = false;
+  option (gogoproto.goproto_getters) = false;
+
+  // initiator is the bech32 account address initiating initial DKG bootstrap.
+  string initiator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // chain_hash is the drand chain hash identifier.
+  bytes chain_hash = 2;
+
+  // public_key is the drand collective BLS public key.
+  bytes public_key = 3;
+
+  // period_seconds is the drand beacon period in seconds.
+  uint64 period_seconds = 4;
+
+  // genesis_unix_sec is the drand genesis time (UNIX seconds) for round 1.
+  int64 genesis_unix_sec = 5;
+}
+
+// MsgInitialDkgResponse is returned on successful delivery of MsgInitialDkg.
+message MsgInitialDkgResponse {}
 
 // MsgUpdateParams is the Msg/UpdateParams request type.
 message MsgUpdateParams {

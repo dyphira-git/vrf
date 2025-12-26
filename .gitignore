@@ -29,5 +29,7 @@ run.go
 .env
 .direnv/
 .vexx.json
+.demo/
 
 docs
+.gocache

@@ -20,6 +20,7 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	Msg_VrfEmergencyDisable_FullMethodName      = "/vexxvakan.vrf.v1.Msg/VrfEmergencyDisable"
+	Msg_InitialDkg_FullMethodName               = "/vexxvakan.vrf.v1.Msg/InitialDkg"
 	Msg_UpdateParams_FullMethodName             = "/vexxvakan.vrf.v1.Msg/UpdateParams"
 	Msg_AddVrfCommitteeMember_FullMethodName    = "/vexxvakan.vrf.v1.Msg/AddVrfCommitteeMember"
 	Msg_RemoveVrfCommitteeMember_FullMethodName = "/vexxvakan.vrf.v1.Msg/RemoveVrfCommitteeMember"
@@ -38,6 +39,11 @@ type MsgClient interface {
 	// state change are enforced by shared logic in PreBlock and the ante
 	// decorator, as described in the PRD.
 	VrfEmergencyDisable(ctx context.Context, in *MsgVrfEmergencyDisable, opts ...grpc.CallOption) (*MsgVrfEmergencyDisableResponse, error)
+	// InitialDkg sets the initial drand chain-info required to bootstrap VRF
+	// (chain_hash, public_key, period_seconds, genesis_unix_sec). On success it
+	// emits an event that off-chain listeners can use to trigger DKG/bootstrap
+	// workflows and refresh sidecar configuration.
+	InitialDkg(ctx context.Context, in *MsgInitialDkg, opts ...grpc.CallOption) (*MsgInitialDkgResponse, error)
 	// UpdateParams defines a governance operation for updating the x/vrf module
 	// parameters. The authority is expected to be the x/gov module account.
 	UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error)
@@ -63,6 +69,16 @@ func (c *msgClient) VrfEmergencyDisable(ctx context.Context, in *MsgVrfEmergency
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(MsgVrfEmergencyDisableResponse)
 	err := c.cc.Invoke(ctx, Msg_VrfEmergencyDisable_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *msgClient) InitialDkg(ctx context.Context, in *MsgInitialDkg, opts ...grpc.CallOption) (*MsgInitialDkgResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MsgInitialDkgResponse)
+	err := c.cc.Invoke(ctx, Msg_InitialDkg_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -130,6 +146,11 @@ type MsgServer interface {
 	// state change are enforced by shared logic in PreBlock and the ante
 	// decorator, as described in the PRD.
 	VrfEmergencyDisable(context.Context, *MsgVrfEmergencyDisable) (*MsgVrfEmergencyDisableResponse, error)
+	// InitialDkg sets the initial drand chain-info required to bootstrap VRF
+	// (chain_hash, public_key, period_seconds, genesis_unix_sec). On success it
+	// emits an event that off-chain listeners can use to trigger DKG/bootstrap
+	// workflows and refresh sidecar configuration.
+	InitialDkg(context.Context, *MsgInitialDkg) (*MsgInitialDkgResponse, error)
 	// UpdateParams defines a governance operation for updating the x/vrf module
 	// parameters. The authority is expected to be the x/gov module account.
 	UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error)
@@ -153,6 +174,9 @@ type UnimplementedMsgServer struct{}
 
 func (UnimplementedMsgServer) VrfEmergencyDisable(context.Context, *MsgVrfEmergencyDisable) (*MsgVrfEmergencyDisableResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method VrfEmergencyDisable not implemented")
+}
+func (UnimplementedMsgServer) InitialDkg(context.Context, *MsgInitialDkg) (*MsgInitialDkgResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method InitialDkg not implemented")
 }
 func (UnimplementedMsgServer) UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateParams not implemented")
@@ -204,6 +228,24 @@ func _Msg_VrfEmergencyDisable_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MsgServer).VrfEmergencyDisable(ctx, req.(*MsgVrfEmergencyDisable))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Msg_InitialDkg_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgInitialDkg)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).InitialDkg(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_InitialDkg_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).InitialDkg(ctx, req.(*MsgInitialDkg))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -308,6 +350,10 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "VrfEmergencyDisable",
 			Handler:    _Msg_VrfEmergencyDisable_Handler,
+		},
+		{
+			MethodName: "InitialDkg",
+			Handler:    _Msg_InitialDkg_Handler,
 		},
 		{
 			MethodName: "UpdateParams",

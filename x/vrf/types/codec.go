@@ -10,6 +10,7 @@ import (
 // RegisterLegacyAminoCodec registers concrete types on the LegacyAmino codec.
 func RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
 	cdc.RegisterConcrete(&MsgVrfEmergencyDisable{}, "vrf/MsgVrfEmergencyDisable", nil)
+	cdc.RegisterConcrete(&MsgInitialDkg{}, "vrf/MsgInitialDkg", nil)
 	cdc.RegisterConcrete(&MsgUpdateParams{}, "vrf/MsgUpdateParams", nil)
 	cdc.RegisterConcrete(&MsgAddVrfCommitteeMember{}, "vrf/MsgAddVrfCommitteeMember", nil)
 	cdc.RegisterConcrete(&MsgRemoveVrfCommitteeMember{}, "vrf/MsgRemoveVrfCommitteeMember", nil)
@@ -22,6 +23,7 @@ func RegisterInterfaces(registry types.InterfaceRegistry) {
 	registry.RegisterImplementations(
 		(*sdk.Msg)(nil),
 		&MsgVrfEmergencyDisable{},
+		&MsgInitialDkg{},
 		&MsgUpdateParams{},
 		&MsgAddVrfCommitteeMember{},
 		&MsgRemoveVrfCommitteeMember{},

@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package vexxvakan.sidecar.v1;
+
+option go_package = "github.com/vexxvakan/vrf/api/vexxvakan/sidecar/v1";
+
+// DrandControl defines a gRPC control plane for a supervised drand subprocess.
+service DrandControl {
+  // Status returns the current supervision state for drand.
+  rpc Status(DrandStatusRequest) returns (DrandStatusResponse) {}
+
+  // Start starts the supervised drand subprocess.
+  rpc Start(DrandStartRequest) returns (DrandStartResponse) {}
+
+  // Stop stops the supervised drand subprocess.
+  rpc Stop(DrandStopRequest) returns (DrandStopResponse) {}
+
+  // Logs returns recent log entries from the supervised drand subprocess.
+  rpc Logs(DrandLogsRequest) returns (DrandLogsResponse) {}
+}
+
+// DrandStatusRequest defines the request type for the Status method.
+message DrandStatusRequest {}
+
+// DrandStatusResponse carries the current drand supervision status.
+message DrandStatusResponse {
+  // running indicates whether the supervised drand subprocess is running.
+  bool running = 1;
+  // pid is the current drand process ID when running.
+  int64 pid = 2;
+  // restart_count is the number of restarts performed by the supervisor.
+  uint32 restart_count = 3;
+}
+
+// DrandStartRequest defines the request type for the Start method.
+message DrandStartRequest {}
+
+// DrandStartResponse carries the drand status after starting.
+message DrandStartResponse {
+  bool running = 1;
+  int64 pid = 2;
+}
+
+// DrandStopRequest defines the request type for the Stop method.
+message DrandStopRequest {}
+
+// DrandStopResponse carries the drand status after stopping.
+message DrandStopResponse {
+  bool running = 1;
+}
+
+// DrandLogsRequest defines the request type for the Logs method.
+message DrandLogsRequest {
+  // tail is the maximum number of log entries to return.
+  uint32 tail = 1;
+}
+
+// DrandLogEntry is a single structured log entry for drand.
+message DrandLogEntry {
+  // unix_nano is the entry timestamp as UNIX nanoseconds.
+  int64 unix_nano = 1;
+  // stream indicates which output stream produced the entry (stdout/stderr).
+  string stream = 2;
+  // line is the raw log line.
+  string line = 3;
+}
+
+// DrandLogsResponse carries log entries for the Logs method.
+message DrandLogsResponse {
+  repeated DrandLogEntry entries = 1;
+}

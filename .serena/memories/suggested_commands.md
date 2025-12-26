@@ -7,7 +7,8 @@
 
 ## Tests
 
-- Unit tests: `make test`
+- Quick/local unit tests (during iteration): run only the package(s) you touched, e.g. `go test ./x/vrf/...` or `go test ./sidecar/...` (optionally narrow further with `go test ./path/to/pkg -run TestName`).
+- Full unit test suite (final verification at end of task): `make unit`
 
 ## Lint/format
 

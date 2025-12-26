@@ -106,6 +106,18 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 		voteExtensionsEnabled := ve.VoteExtensionsEnabled(ctx)
 		if voteExtensionsEnabled {
 			extInfo := req.LocalLastCommit
+			extCount := 0
+			for _, vote := range extInfo.Votes {
+				if len(vote.VoteExtension) > 0 {
+					extCount++
+				}
+			}
+			h.logger.Info(
+				"vrf: prepare proposal local_last_commit vote extensions",
+				"height", ctx.BlockHeight(),
+				"ext_count", extCount,
+				"total_votes", len(extInfo.Votes),
+			)
 
 			extInfoBz, err = h.extendedCommitCodec.Encode(extInfo)
 			if err != nil {
@@ -243,7 +255,7 @@ func (h *ProposalHandler) isVrfEnabled(ctx sdk.Context) bool {
 		return false
 	}
 
-	params, err := h.vrfKeeper.GetParams(sdk.WrapSDKContext(ctx))
+	params, err := h.vrfKeeper.GetParams(ctx)
 	if err != nil {
 		h.logger.Error("vrf: failed to load params in ProcessProposal; treating as disabled", "err", err)
 		return false

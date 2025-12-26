@@ -6,6 +6,8 @@ import (
 	"fmt"
 
 	"golang.org/x/sys/unix"
+
+	scerror "github.com/vexxvakan/vrf/sidecar/errors"
 )
 
 func udsPeerTokenFromFD(fd int) (string, error) {
@@ -26,5 +28,5 @@ func udsPeerTokenFromFD(fd int) (string, error) {
 		return "", credErr
 	}
 
-	return "", errUnableToDeterminePeerCredentials
+	return "", scerror.ErrUnableToDeterminePeerCredentials
 }

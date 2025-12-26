@@ -108,7 +108,6 @@ func ValidateVoteExtensions(
 	currentHeight := ctx.HeaderInfo().Height
 	chainID := ctx.HeaderInfo().ChainID
 	commitInfo := ctx.CometInfo().GetLastCommit()
-	storeCtx := sdk.WrapSDKContext(ctx)
 
 	// Check that both extCommit + commit are ordered in accordance with vp/address.
 	if err := ValidateExtendedCommitAgainstLastCommit(extCommit, commitInfo); err != nil {
@@ -171,7 +170,7 @@ func ValidateVoteExtensions(
 		// is a 1 block delay between the validator set update on the app and comet.
 		sumVP += vote.Validator.Power
 		valConsAddr := sdk.ConsAddress(vote.Validator.Address)
-		pubKeyProto, err := valStore.GetPubKeyByConsAddr(storeCtx, valConsAddr)
+		pubKeyProto, err := valStore.GetPubKeyByConsAddr(ctx, valConsAddr)
 		if err != nil {
 			continue
 		}

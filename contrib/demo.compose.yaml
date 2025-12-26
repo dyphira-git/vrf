@@ -1,0 +1,80 @@
+name: vrf-demo
+
+services:
+  chain-1:
+    depends_on:
+      - sidecar-1
+    image: ${CHAIN_IMAGE:-vrf-chain:local}
+    entrypoint: ["sh", "-lc"]
+    command:
+      - |
+        exec sh /scripts/chain/start.sh
+    environment:
+      CHAIN_ID: ${CHAIN_ID:-vrf-demo-1}
+      DENOM: ${DENOM:-uchain}
+      CHAIN_DIR: /var/cosmos-chain/node1
+      MIN_GAS_PRICES: ${MIN_GAS_PRICES:-0uchain}
+      TRACE: ${TRACE:-false}
+      START_RETRY: "true"
+      RETRY_BACKOFF: "10"
+    ports:
+      - "${CHAIN1_P2P_PORT:-26656}:26656"
+      - "${CHAIN1_RPC_PORT:-26657}:26657"
+      - "${CHAIN1_API_PORT:-1317}:1317"
+      - "${CHAIN1_GRPC_PORT:-9090}:9090"
+    volumes:
+      - ../scripts:/scripts:ro
+      - ${DEMO_DIR:-../.demo}/node1:/var/cosmos-chain/node1
+    restart: unless-stopped
+
+  chain-2:
+    depends_on:
+      - sidecar-2
+    image: ${CHAIN_IMAGE:-vrf-chain:local}
+    entrypoint: ["sh", "-lc"]
+    command:
+      - |
+        exec sh /scripts/chain/start.sh
+    environment:
+      CHAIN_ID: ${CHAIN_ID:-vrf-demo-1}
+      DENOM: ${DENOM:-uchain}
+      CHAIN_DIR: /var/cosmos-chain/node2
+      MIN_GAS_PRICES: ${MIN_GAS_PRICES:-0uchain}
+      TRACE: ${TRACE:-false}
+      START_RETRY: "true"
+      RETRY_BACKOFF: "12"
+    ports:
+      - "${CHAIN2_P2P_PORT:-26666}:26656"
+      - "${CHAIN2_RPC_PORT:-26667}:26657"
+      - "${CHAIN2_API_PORT:-1318}:1317"
+      - "${CHAIN2_GRPC_PORT:-9091}:9090"
+    volumes:
+      - ../scripts:/scripts:ro
+      - ${DEMO_DIR:-../.demo}/node2:/var/cosmos-chain/node2
+    restart: unless-stopped
+
+  sidecar-1:
+    image: ${SIDECAR_IMAGE:-vrf-sidecar:local}
+    command:
+      - start
+      - --listen-addr=0.0.0.0:8090
+    environment:
+      CHAIN_DIR: /var/cosmos-chain/node1
+    ports:
+      - "${SIDECAR1_GRPC_PORT:-8090}:8090"
+    volumes:
+      - ${DEMO_DIR:-../.demo}/node1:/var/cosmos-chain/node1
+    restart: unless-stopped
+
+  sidecar-2:
+    image: ${SIDECAR_IMAGE:-vrf-sidecar:local}
+    command:
+      - start
+      - --listen-addr=0.0.0.0:8090
+    environment:
+      CHAIN_DIR: /var/cosmos-chain/node2
+    ports:
+      - "${SIDECAR2_GRPC_PORT:-8092}:8090"
+    volumes:
+      - ${DEMO_DIR:-../.demo}/node2:/var/cosmos-chain/node2
+    restart: unless-stopped

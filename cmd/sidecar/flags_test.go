@@ -1,16 +1,39 @@
 package main
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+)
+
+func writeTestChainConfig(t *testing.T) string {
+	t.Helper()
+
+	home := t.TempDir()
+	cfgDir := filepath.Join(home, "config")
+	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+		t.Fatalf("failed to create config dir: %v", err)
+	}
+
+	clientToml := `
+node = "http://127.0.0.1:26657"
+grpc-addr = "127.0.0.1:9090"
+`
+	if err := os.WriteFile(filepath.Join(cfgDir, "client.toml"), []byte(clientToml), 0o644); err != nil {
+		t.Fatalf("failed to write client.toml: %v", err)
+	}
+
+	return home
+}
 
 func TestParseFlags_DebugHTTPDisabledByDefault(t *testing.T) {
-	t.Parallel()
+	home := writeTestChainConfig(t)
+	t.Setenv("CHAIN_HOME", home)
 
-	cfg, showVersion, err := parseFlags(nil)
+	cfg, err := parseFlags(nil)
 	if err != nil {
 		t.Fatalf("parseFlags returned error: %v", err)
-	}
-	if showVersion {
-		t.Fatal("expected showVersion=false by default")
 	}
 	if cfg.DebugHTTPEnabled {
 		t.Fatal("expected DebugHTTPEnabled=false by default")
@@ -74,9 +97,10 @@ func TestValidateBindConfig_DebugHTTPAllowsUnixSocket(t *testing.T) {
 }
 
 func TestParseFlags_GRPCServerConfigIsParsed(t *testing.T) {
-	t.Parallel()
+	home := writeTestChainConfig(t)
+	t.Setenv("CHAIN_HOME", home)
 
-	cfg, _, err := parseFlags([]string{
+	cfg, err := parseFlags([]string{
 		"--grpc-keepalive-time=30s",
 		"--grpc-keepalive-timeout=10s",
 		"--grpc-keepalive-min-time=15s",
@@ -129,12 +153,97 @@ func TestParseFlags_GRPCServerConfigIsParsed(t *testing.T) {
 }
 
 func TestParseFlags_GRPCMaxConcurrentStreamsMustFitUint32(t *testing.T) {
-	t.Parallel()
+	home := writeTestChainConfig(t)
+	t.Setenv("CHAIN_HOME", home)
 
-	_, _, err := parseFlags([]string{
+	_, err := parseFlags([]string{
 		"--grpc-max-concurrent-streams=4294967296",
 	})
 	if err == nil {
 		t.Fatal("expected error when --grpc-max-concurrent-streams exceeds uint32 range")
+	}
+}
+
+func TestParseFlags_DrandRestartConfigFromVrfToml(t *testing.T) {
+	home := t.TempDir()
+	cfgDir := filepath.Join(home, "config")
+	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+		t.Fatalf("failed to create config dir: %v", err)
+	}
+
+	clientToml := `
+node = "http://127.0.0.1:26657"
+grpc-addr = "127.0.0.1:9090"
+`
+	if err := os.WriteFile(filepath.Join(cfgDir, "client.toml"), []byte(clientToml), 0o644); err != nil {
+		t.Fatalf("failed to write client.toml: %v", err)
+	}
+
+	t.Setenv("CHAIN_HOME", home)
+
+	vrfToml := `
+	http = "http://127.0.0.1:8081"
+	allow_non_loopback_http = false
+	public_addr = "127.0.0.1:8081"
+	private_addr = "0.0.0.0:4444"
+control_addr = "127.0.0.1:8888"
+data_dir = "` + filepath.ToSlash(filepath.Join(home, "drand")) + `"
+binary = "drand"
+id = "default"
+
+no_restart = true
+restart_backoff_min = "5s"
+restart_backoff_max = "10s"
+`
+
+	if err := os.WriteFile(filepath.Join(cfgDir, "vrf.toml"), []byte(vrfToml), 0o644); err != nil {
+		t.Fatalf("failed to write vrf.toml: %v", err)
+	}
+
+	cfg, err := parseFlags([]string{"--drand-config", filepath.Join(cfgDir, "vrf.toml")})
+	if err != nil {
+		t.Fatalf("parseFlags returned error: %v", err)
+	}
+
+	if !cfg.DrandNoRestart {
+		t.Fatal("expected DrandNoRestart=true from vrf.toml")
+	}
+	if cfg.DrandRestartMin != 5*time.Second {
+		t.Fatalf("expected DrandRestartMin=5s, got %s", cfg.DrandRestartMin)
+	}
+	if cfg.DrandRestartMax != 10*time.Second {
+		t.Fatalf("expected DrandRestartMax=10s, got %s", cfg.DrandRestartMax)
+	}
+}
+
+func TestParseFlags_InvalidRestartBackoffInVrfToml(t *testing.T) {
+	home := t.TempDir()
+	cfgDir := filepath.Join(home, "config")
+	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+		t.Fatalf("failed to create config dir: %v", err)
+	}
+
+	clientToml := `
+node = "http://127.0.0.1:26657"
+grpc-addr = "127.0.0.1:9090"
+`
+	if err := os.WriteFile(filepath.Join(cfgDir, "client.toml"), []byte(clientToml), 0o644); err != nil {
+		t.Fatalf("failed to write client.toml: %v", err)
+	}
+
+	t.Setenv("CHAIN_HOME", home)
+
+	vrfToml := `
+	data_dir = "` + filepath.ToSlash(filepath.Join(home, "drand")) + `"
+	restart_backoff_min = "nope"
+	`
+
+	if err := os.WriteFile(filepath.Join(cfgDir, "vrf.toml"), []byte(vrfToml), 0o644); err != nil {
+		t.Fatalf("failed to write vrf.toml: %v", err)
+	}
+
+	_, err := parseFlags([]string{"--drand-config", filepath.Join(cfgDir, "vrf.toml")})
+	if err == nil {
+		t.Fatal("expected error for invalid restart_backoff_min")
 	}
 }

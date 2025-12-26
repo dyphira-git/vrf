@@ -18,7 +18,3 @@ Prefer using the multi_tool_use.parallel function in combination with either git
 4. Double-check implemented unit tests in great detail, be extremly strict here.
 5. Create or update corresponding README.md carefully, keep it concise though.
 6. Implement thorough and highly detailed code to fulfill unit test requirements.
-
-## **When thinking about task adherence**
-- Are you at the end of your task?
-- ONLY NOW read "github_issue_completion" from memory

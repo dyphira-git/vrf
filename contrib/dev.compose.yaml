@@ -1,0 +1,75 @@
+name: vrf
+
+services:
+  chain:
+    depends_on:
+      - sidecar
+    image: ${CHAIN_IMAGE:-vrf-chain:dev}
+    build:
+      context: ..
+      dockerfile: contrib/images/chain.Dockerfile
+      args:
+        GO_VERSION: ${DOCKER_GO_VERSION:-1.25.3}
+        ALPINE_VERSION: ${DOCKER_ALPINE_VERSION:-3.22}
+        VERSION: ${VERSION:-dev}
+        COMMIT: ${COMMIT:-}
+        BUILD_TAGS: ${DOCKER_BUILD_TAGS:-muslc}
+        LEDGER_ENABLED: ${DOCKER_LEDGER_ENABLED:-false}
+        LINK_STATICALLY: ${DOCKER_LINK_STATICALLY:-true}
+        SKIP_TIDY: ${DOCKER_SKIP_TIDY:-true}
+    entrypoint: ["sh", "-lc"]
+    command:
+      - |
+        sh /scripts/chain/init.sh
+        exec sh /scripts/chain/start.sh
+    environment:
+      MONIKER: ${MONIKER:-node001}
+      CHAIN_ID: ${CHAIN_ID:-chain-1}
+      DENOM: ${DENOM:-uchain}
+      KEYNAME: ${KEYNAME:-validator}
+      KEYRING_BACKEND: ${KEYRING_BACKEND:-test}
+      CHAIN_DIR: ${CHAIN_DIR:-/.vrf/.chaind}
+      RESET_CHAIN: ${RESET_CHAIN:-false}
+      TIMEOUT_COMMIT: ${TIMEOUT_COMMIT:-2s}
+      BLOCK_GAS_LIMIT: ${BLOCK_GAS_LIMIT:-10000000}
+      MIN_GAS_PRICES: ${MIN_GAS_PRICES:-0uchain}
+      TRACE: ${TRACE:-false}
+    ports:
+      - "${CHAIN_P2P_PORT:-26656}:26656"
+      - "${CHAIN_RPC_PORT:-26657}:26657"
+      - "${CHAIN_API_PORT:-1317}:1317"
+      - "${CHAIN_GRPC_PORT:-9090}:9090"
+    volumes:
+      - ../scripts:/scripts:ro
+      - chain-data:/.vrf/.chaind
+      - vrf-socket:/var/run/vrf
+    restart: unless-stopped
+
+  sidecar:
+    image: ${SIDECAR_IMAGE:-vrf-sidecar:dev}
+    build:
+      context: ..
+      dockerfile: contrib/images/sidecar.Dockerfile
+      args:
+        GO_VERSION: ${DOCKER_GO_VERSION:-1.25.3}
+        ALPINE_VERSION: ${DOCKER_ALPINE_VERSION:-3.22}
+        VERSION: ${VERSION:-dev}
+        COMMIT: ${COMMIT:-}
+        BUILD_TAGS: ${DOCKER_BUILD_TAGS:-muslc}
+        DRAND_CONN_INSECURE: ${DRAND_CONN_INSECURE:-true}
+        LEDGER_ENABLED: ${DOCKER_LEDGER_ENABLED:-false}
+        LINK_STATICALLY: ${DOCKER_LINK_STATICALLY:-true}
+        SKIP_TIDY: ${DOCKER_SKIP_TIDY:-true}
+    command:
+      - start
+      - --listen-addr=unix:///var/run/vrf/sidecar.sock
+    volumes:
+      - chain-data:/.vrf/.chaind
+      - drand-data:/var/lib/vrf/drand
+      - vrf-socket:/var/run/vrf
+    restart: unless-stopped
+
+volumes:
+  chain-data:
+  drand-data:
+  vrf-socket:
